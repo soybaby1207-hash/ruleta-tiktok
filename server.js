@@ -42,11 +42,14 @@ function room(user){
     await ready;if(r.dead)return;if(!r.clients.size)return retry();
     r.conn=new Conn(user,{signApiKey:KEY});
     r.conn.on('gift',d=>{
-      if(d.giftType===1&&!d.repeatEnd)return;
-      const nm=(d.giftName||'').toLowerCase(),want=g.gift.toLowerCase(),min=COINS[want]||0;
-      if(want&&nm!==want&&!(g.up&&min&&(d.diamondCount||0)>=min))return;
+      const nm=(d.giftName||'').toLowerCase(),want=g.gift.toLowerCase(),min=COINS[want]||0,who=d.nickname||d.uniqueId||'?';
+      const info=m=>{console.log('gift',nm,who,m);send('status',{ok:true,msg:'🎁 '+(d.giftName||'?')+' de '+who+' → '+m})};
+      if(d.giftType===1&&!d.repeatEnd)return info('combo en curso, espera a que termine');
+      if(want&&nm!==want&&!(g.up&&min&&(d.diamondCount||0)>=min))return info('ignorado: tu regalo configurado es "'+g.gift+'"');
+      if(!['open','joining'].includes(g.phase))return info('ignorado: entradas cerradas');
       const n=d.repeatCount||1;if(d.giftPictureUrl)g.gu[nm]=g.gu['*']=d.giftPictureUrl;
-      add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||''},(d.diamondCount||0)*n,n)});
+      add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||''},(d.diamondCount||0)*n,n);info('entró ✅')});
+    let lastChat=0;r.conn.on('chat',d=>{if(Date.now()-lastChat>5000){lastChat=Date.now();send('status',{ok:true,msg:'💬 Conexión activa (chat de '+(d.nickname||d.uniqueId||'?')+')'})}});
     r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
     r.conn.on('disconnected',()=>{send('status',{ok:false,msg:'Desconectado, reintentando…'});retry()});
     r.conn.on('streamEnd',()=>send('status',{ok:false,msg:'El live terminó'}));
