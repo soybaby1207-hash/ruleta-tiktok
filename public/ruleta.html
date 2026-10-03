@@ -1,0 +1,138 @@
+<!doctype html><html lang=es><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>Ruleta de eliminación TikTok</title>
+<style>
+html,body{margin:0;height:100%;font-family:system-ui,sans-serif;color:#fff;background:#0b0b0f}
+body{display:flex}body.o{background:transparent}
+#p{width:320px;flex:none;padding:14px;background:#17171d;overflow:auto;box-sizing:border-box}body.o #p{display:none}
+#p input,#p select,#p button{width:100%;box-sizing:border-box;padding:9px;margin:3px 0;border:0;border-radius:8px;font-size:14px}
+#p input,#p select{background:#26262e;color:#fff}#p button{background:#fe2c55;color:#fff;font-weight:700;cursor:pointer}
+#p button.g{background:#34343e}#p h4{margin:12px 0 2px;color:#25f4ee}.r{display:flex;gap:6px}
+#lk{background:#000;color:#25f4ee;padding:8px;border-radius:8px;word-break:break-all;font-size:12px;margin:4px 0}small{color:#999}
+#s{flex:1;display:flex;justify-content:center;position:relative}body.o #s{display:block}
+#w{height:100%;width:100%;max-width:440px;container-type:size;display:flex;flex-direction:column;align-items:center;padding:1.2cqh 3cqw;box-sizing:border-box;gap:1cqh;position:relative}
+body.o #w{max-width:none}
+#t{font-size:min(14cqw,10cqh);font-weight:900;line-height:1;text-shadow:0 3px 8px #000}
+.pill{display:flex;align-items:center;justify-content:center;width:70%;padding:.8cqh 2cqw;border-radius:99px;font-weight:800;font-size:min(3.4cqw,2.2cqh);letter-spacing:.05em;border:.4cqw solid #fff;box-sizing:border-box}
+#p1{background:#d3121e}
+#sr{display:flex;gap:1.2cqw;width:100%;justify-content:center;align-items:stretch}
+.b,#gf{background:#000b;border:1px solid #fff3;border-radius:1.6cqw;padding:.7cqh 1.8cqw;text-align:center;min-width:17%}
+.b small{display:block;font-size:min(2.4cqw,1.4cqh);color:#bbb;letter-spacing:.08em}.b b{font-size:min(5.4cqw,3.2cqh)}
+#gf{font-size:min(7cqw,4.4cqh);font-weight:900;display:flex;align-items:center;gap:1cqw}
+#g{flex:1;width:100%;border:.9cqw solid #ffd60a;border-radius:2.2cqw;background:#000a;padding:.5cqw;box-sizing:border-box;display:grid;gap:2px;overflow:hidden}
+.c{position:relative;box-sizing:border-box;border:var(--b,2px) solid #ffffff70;border-radius:var(--r,8px);overflow:hidden;background:#222;min-width:0;min-height:0;box-shadow:0 3px 8px #000a}
+.c img,.c i{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800}
+.c span{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,#000d);padding:6px 2px 2px;font-weight:800;text-shadow:0 1px 3px #000;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hl{outline:3px solid #ffd60a;z-index:2;transform:scale(1.2);box-shadow:0 0 14px #ffd60a}
+.dead{filter:grayscale(1) brightness(.6)}.dead::after{content:'✖';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#e0112299;font-size:min(10cqw,6cqh)}
+#win{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:#000d;font-size:9cqw;font-weight:900;text-align:center;z-index:5}
+#win img{width:30cqw;height:30cqw;border-radius:50%;margin:2cqw;object-fit:cover}
+
+.new{animation:pop .6s cubic-bezier(.2,1.4,.4,1)}@keyframes pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.06);opacity:1;border-color:#ffd60a;box-shadow:0 0 14px #ffd60a,inset 0 0 0 2px #ffd60a}100%{transform:scale(1)}}
+.bump{display:inline-block;animation:bump .45s}@keyframes bump{40%{transform:scale(1.4);color:#ffd60a}}
+#toast{position:absolute;left:50%;bottom:4cqh;transform:translateX(-50%);display:none;align-items:center;gap:1.5cqw;background:#000e;border:.5cqw solid #ffd60a;border-radius:99px;padding:.8cqh 3cqw .8cqh .8cqh;font-size:min(4.6cqw,2.8cqh);white-space:nowrap;z-index:4;animation:tin .35s cubic-bezier(.2,1.5,.4,1)}
+#toast img{height:5cqh;width:5cqh;border-radius:50%;object-fit:cover}@keyframes tin{from{transform:translate(-50%,40px) scale(.6);opacity:0}}
+#elim{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:2cqh;background:#000d;z-index:6;animation:ein .3s cubic-bezier(.2,1.5,.4,1)}
+#elim img,.ei{width:42cqw;height:42cqw;border-radius:50%;object-fit:cover;border:1cqw solid #e01122}
+.ei{background:#7c4dff;display:flex;align-items:center;justify-content:center;font-size:20cqw;font-weight:900}
+.en{font-size:8cqw;font-weight:900;text-shadow:0 3px 8px #000;max-width:94%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex{background:#d3121e;border:.6cqw solid #fff;border-radius:2cqw;padding:1cqh 6cqw;font-size:9cqw;font-weight:900;letter-spacing:.08em;transform:rotate(-4deg)}
+@keyframes ein{from{transform:scale(.5);opacity:0}}
+#g{position:relative}
+#sel{position:absolute;display:none;box-sizing:border-box;border:max(3px,.8cqw) solid #fff;background:#ffffff40;box-shadow:0 0 0 2px #0009,0 0 18px #fff;z-index:5;pointer-events:none;border-radius:var(--r,6px)}
+#gh{flex:1;width:100%;min-height:0;display:flex;justify-content:center;align-items:flex-start}
+#g{flex:none;width:auto}
+#p2{border-color:#111;color:#111;font-weight:900;font-size:min(4.6cqw,2.9cqh);letter-spacing:.08em;box-shadow:0 2px 0 #0008}
+.blink{animation:blink .5s steps(1) infinite;color:#ff3b3b}@keyframes blink{50%{opacity:.1}}
+#hint{font-size:min(3.4cqw,2cqh);color:#ffd60a;font-weight:700;min-height:1.2em;text-shadow:0 1px 4px #000;margin-top:-.6cqh}
+.lv{position:absolute;top:3px;right:3px;display:none;background:#e01122;border:2px solid #fff;border-radius:99px;font-weight:900;padding:0 6px;z-index:2;text-shadow:0 1px 2px #0008}
+.hit{animation:hit .6s}@keyframes hit{0%{box-shadow:inset 0 0 0 200px #ff0000aa}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}100%{transform:none}}
+#toast em{font-style:normal;color:#ffd60a;font-weight:900}
+</style>
+<div id=p>
+<h3>🎡 Ruleta TikTok</h3>
+<h4>1. Conexión con TikTok</h4>
+<input id=tu placeholder="@tu_usuario de TikTok (en directo)"><input id=ws value="ws://localhost:21213/" title="Solo si NO usas el servidor (ej. TikFinity)"><button onclick=conectar()>Conectar</button><small id=cs>Sin conectar</small><small>Con el servidor (ver LEEME) basta tu @usuario. Si abres el archivo suelto, usa el WebSocket.</small>
+<h4>2. Reglas</h4>
+<select id=mode onchange=cfg()><option value=free>Modo libre (donar siempre)</option><option value=lock>Modo bloqueado (ventana de tiempo)</option></select>
+<select id=gift onchange=ui()></select><input id=cu placeholder="Otro regalo (nombre en inglés)" oninput=ui()><input id=im placeholder="URL de la foto del regalo (opcional)" oninput=ui()><label><input type=checkbox id=up style="width:auto"> Aceptar también regalos más caros</label><small>Modo bloqueado: las entradas se abren solas y al cerrarse empieza solo el contador de eliminación.</small>
+<div class=r><input id=sec type=number value=60 title="segundos de entradas"><button onclick=abrir($('sec').value)>⏱ Abrir entradas</button></div>
+<div class=r><input id=au type=number value=15 title="segundos entre eliminaciones"><button onclick=auto($('au').value)>Auto cada N s</button></div>
+<button class=g onclick=auto(0)>Parar auto</button>
+<h4>3. Pruebas</h4>
+<button onclick=girar()>💀 ELIMINAR A UNO</button>
+<div class=r><button class=g onclick=test(1)>+1</button><button class=g onclick=test(30)>+30</button><button class=g onclick=reset()>Reiniciar</button></div><button class=g onclick="add(fake(),(giftCoins()||1)*50,50)">+1 jugador con x50 vidas</button>
+<h4>4. Enlace para TikTok LIVE Studio</h4>
+<button onclick=enlace()>🔗 Generar enlace</button><div id=lk>Pulsa "Generar enlace"</div>
+<button class=g onclick="navigator.clipboard.writeText($('lk').textContent)">Copiar enlace</button>
+<small>LIVE Studio → Añadir fuente → Enlace/Web. Ese enlace ya lleva tus reglas y se conecta solo. Ábrelo antes en Chrome para comprobar que se ve.</small>
+</div>
+<div id=s><div id=w>
+<div id=t>0:00</div><div id=hint></div><div class=pill id=p1>💀 ELIMINATION MODE</div><div class=pill id=p2></div>
+<div id=sr><div id=gf><span id=ge>🌹</span> <span id=ng>0</span></div><div class=b><small>PLAYERS</small><b id=np>0</b></div><div class=b><small>COINS</small><b id=nc>0</b></div><div class=b><small>ENTRIES</small><b id=ne>⭐ 0</b></div></div>
+<div id=gh><div id=g></div></div><div id=toast></div><div id=elim></div><div id=win></div></div></div>
+<script>
+const $=id=>document.getElementById(id),COL=['#fe2c55','#25f4ee','#7c4dff','#00a86b','#ff6d00','#2979ff'],fmt=n=>n.toLocaleString('en-US');
+const GIFTS=[['🌹','Rose',1],['🎵','TikTok',1],['🍦','Ice Cream Cone',1],['🫶','Heart Me',1],['☝️','Finger Heart',5],['🧴','Perfume',20],['🍩','Doughnut',30],['🧢','Cap',99],['🕊️','Paper Crane',99],['👑','Little Crown',99],['🎩','Hat and Mustache',99],['🎉','Confetti',100],['🤲','Hand Hearts',100],['🕶️','Sunglasses',199],['🥊','Gold Boxing Gloves',299],['🐕','Corgi',299],['🔫','Money Gun',500],['🦢','Swan',699],['🚆','Train',899],['🌌','Galaxy',1000],['🎆','Fireworks',1088],['🐋','Whale Diving',2150],['🐱','Leon the Kitten',4888],['👸','Drama Queen',5000],['🏎️','Sports Car',7000],['🦁','Lion',29999],['🪐','TikTok Universe',44999]];
+const getGift=()=>$('cu').value.trim()||$('gift').value,giftCoins=()=>{const g=GIFTS.find(x=>x[1].toLowerCase()===getGift().toLowerCase());return g?g[2]:0};
+function setGift(n){if(!n||GIFTS.some(x=>x[1]===n))$('gift').value=n;else $('cu').value=n}
+$('gift').innerHTML='<option value="">✨ Cualquier regalo</option>'+GIFTS.map(g=>`<option value="${g[1]}">${g[0]} ${g[1]} · ${g[2]} 🪙</option>`).join('');$('gift').value='Rose';
+const gImg={},GIFTIMG={rose:'https://i.etsystatic.com/59375365/r/il/a6a92b/7090217774/il_794xN.7090217774_jjxr.jpg'};let players=[],phase='open',joinEnd=0,autoAt=0,gifts=0,coins=0,entries=0,joinT,autoT,spinning=false,key='',sock;
+const Q=new URLSearchParams(location.search);
+function cfg(){clearTimeout(joinT);auto(0);joinEnd=0;if($('mode').value==='lock')abrir($('sec').value);else{phase='open';ui();auto($('au').value||15)}}
+function add(p,c,n){if(!['open','joining'].includes(phase))return;n=n||1;gifts+=n;coins+=c;entries++;const ex=players.find(a=>a.id===p.id);
+ if(ex){ex.lives+=n;if(p.avatar&&!ex.avatar)ex.avatar=p.avatar}else{p.lives=n;players.push(p)}
+ if(!spinning)render();ui();toast(ex||p,n,ex?'add':'new')}
+function test(n){for(let i=0;i<n;i++)setTimeout(()=>add(fake(),giftCoins()||1,1),i*90)}
+function abrir(s){clearTimeout(joinT);auto(0);s=+s||60;phase='joining';joinEnd=Date.now()+s*1000;joinT=setTimeout(()=>{phase='closed';ui();auto($('au').value||15)},s*1000);ui()}
+function reset(){players=[];gifts=coins=entries=0;key='';cfg();render()}
+let autoSec=0;function auto(s){clearTimeout(autoT);s=+s||0;autoSec=s;if(!s){autoAt=0;return}autoAt=Date.now()+s*1000;autoT=setTimeout(()=>{if(players.length>1){autoAt=0;girar()}else auto(s)},s*1000)}
+function ganador(p){const w=$('win');w.innerHTML=(p.avatar?`<img src="${p.avatar}">`:'')+'🏆 GANADOR<br>'+p.name;w.style.display='flex';setTimeout(()=>w.style.display='none',9000)}
+const rnd=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;
+function elim(p){const c=$('elim');c.innerHTML='';const ph=()=>{const d=document.createElement('div');d.className='ei';d.textContent=(p.name||'?')[0].toUpperCase();return d};
+ if(p.avatar){const i=new Image();i.src=p.avatar;i.onerror=()=>i.replaceWith(ph());c.appendChild(i)}else c.appendChild(ph());
+ const n=document.createElement('div');n.className='en';n.textContent=p.name;const x=document.createElement('div');x.className='ex';x.textContent='ELIMINADO';c.append(n,x);
+ c.style.display='flex';c.style.animation='none';void c.offsetWidth;c.style.animation='';setTimeout(()=>c.style.display='none',1500)}
+function girar(){if(spinning||!players.length)return;if(players.length===1)return ganador(players[0]);
+ spinning=true;const g=$('g'),t=players[rnd(players.length)],els=players.map(p=>$('c'+p.id)).filter(Boolean);let sel=$('sel');
+ if(!sel){sel=document.createElement('div');sel.id='sel';g.appendChild(sel)}
+ const go=e=>{sel.style.cssText=`display:block;left:${e.offsetLeft}px;top:${e.offsetTop}px;width:${e.offsetWidth}px;height:${e.offsetHeight}px`};
+ const fin=()=>{spinning=false;render();if(players.length===1){ganador(players[0]);auto(0)}else if(autoSec)auto(autoSec)};
+ let last;const iv=setInterval(()=>{let e;do{e=els[rnd(els.length)]}while(e===last&&els.length>1);last=e;go(e)},55);
+ setTimeout(()=>{clearInterval(iv);const e=$('c'+t.id);if(e)go(e);
+  if(t.lives>1){t.lives--;if(e){e.classList.add('hit');setTimeout(()=>e.classList.remove('hit'),700)}toast(t,0,'life');render();ui();setTimeout(()=>{sel.style.display='none';fin()},1100)}
+  else{if(e)e.classList.add('dead');setTimeout(()=>{sel.style.display='none';elim(t);players=players.filter(p=>p.id!==t.id);render();ui();setTimeout(fin,1500)},350)}},1400)}
+const els={};let toT;
+function toast(p,n,k){const t=$('toast');t.innerHTML='';if(p.avatar){const i=new Image();i.src=p.avatar;t.appendChild(i)}const b=document.createElement('b');b.textContent=p.name;t.append(b);
+ if(n>1){const m=document.createElement('em');m.textContent=' x'+n;t.append(m)}
+ t.append(k==='life'?' perdió una vida ❤ ('+p.lives+' restantes)':k==='add'?' sumó vidas ❤':' ha entrado 🔥');
+ t.style.display='flex';t.style.animation='none';void t.offsetWidth;t.style.animation='';clearTimeout(toT);toT=setTimeout(()=>t.style.display='none',2200)}
+function render(){const g=$('g'),h=$('gh'),n=Math.max(1,players.length),W=h.clientWidth||300,H=h.clientHeight||400,pd=8;
+ let best=null;for(let c=1;c<=n;c++){const r=Math.ceil(n/c),gp=Math.max(3,Math.min(10,Math.min(W/c,H/r)/12)),sz=Math.min((W-2*pd-(c-1)*gp)/c,(H-2*pd-(r-1)*gp)/r);if(!best||sz>best.sz)best={c,r,gp,sz}}
+ const cols=best.c,rows=best.r,gp=best.gp,size=Math.floor(Math.max(8,Math.min(W*.175,best.sz))),fs=Math.max(10,Math.min(26,size/5)),bw=parseFloat(getComputedStyle(g).borderLeftWidth)||0;
+ g.style.gridTemplateColumns=`repeat(${cols},${size}px)`;g.style.gridTemplateRows=`repeat(${rows},${size}px)`;g.style.gap=gp+'px';g.style.padding=pd+'px';
+ g.style.width=W+'px';g.style.height=H+'px';g.style.justifyContent='center';g.style.alignContent='center';
+ g.style.setProperty('--r',gp*1.5+'px');g.style.setProperty('--b',Math.max(1.5,gp/3)+'px');
+ const ids=new Set(players.map(p=>p.id));for(const id in els)if(!ids.has(id)){els[id].remove();delete els[id]}
+ players.forEach((p,i)=>{let d=els[p.id];if(!d){d=els[p.id]=document.createElement('div');d.className='c new';d.id='c'+p.id;
+  const fb=()=>{const f=document.createElement('i');f.style.background=COL[i%6];f.textContent=(p.name||'?')[0].toUpperCase();return f};
+  if(p.avatar){const im=new Image();im.src=p.avatar;im.onerror=()=>im.replaceWith(fb());d.appendChild(im)}else d.appendChild(fb());
+  const bd=document.createElement('b');bd.className='lv';d.appendChild(bd);d.bd=bd;const sp=document.createElement('span');sp.textContent=p.name;d.appendChild(sp);g.appendChild(d);setTimeout(()=>d.classList.remove('new'),800)}
+  d.bd.textContent='❤ '+(p.lives||1);d.bd.style.display=p.lives>1?'block':'none';d.bd.style.fontSize=Math.max(10,size/5)+'px';
+  d.lastChild.style.fontSize=fs+'px';d.lastChild.style.display=(fs>=10&&players.length<=80)?'block':'none'})}
+const NM=['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'],SF=['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
+function fake(){const w=Math.random()<.5,i=Math.random()*99|0;return{id:'t'+Math.random(),name:NM[Math.random()*NM.length|0]+SF[Math.random()*SF.length|0],avatar:`https://randomuser.me/api/portraits/${w?'women':'men'}/${i}.jpg`}}
+function set(id,t){const e=$(id);if(e.textContent!==t){e.textContent=t;e.classList.remove('bump');void e.offsetWidth;e.classList.add('bump')}}
+function ui(){const o=phase==='joining'||phase==='open';const lk=$('mode').value==='lock';$('p2').textContent=lk?(phase==='closed'?'🔒 LOCK MODE':'LOCK MODE'):'OPEN MODE';$('p2').style.background=lk?'#ffb347':'#5ce0a8';
+ const gi=GIFTS.find(x=>x[1]===getGift());const u=$('im').value.trim()||GIFTIMG[getGift().toLowerCase()]||gImg[getGift().toLowerCase()]||gImg['*'];$('ge').innerHTML=u?`<img src="${u}" style="height:1.2em;vertical-align:middle" onerror="this.replaceWith('🎁')">`:(gi?gi[0]:'🎁');set('ng',fmt(gifts));set('np',fmt(players.length));set('nc',fmt(coins));set('ne','⭐ '+fmt(entries))}
+function clock(){const e=autoAt||(phase==='joining'?joinEnd:0),l=e?Math.max(0,Math.ceil((e-Date.now())/1000)):0;$('t').textContent=Math.floor(l/60)+':'+String(l%60).padStart(2,'0');$('t').classList.toggle('blink',!!e&&l>0&&l<=5);$('hint').textContent=(autoSec&&players.length<2&&!spinning)?'Esperando al menos 2 jugadores…':''}
+function wsUrl(){const us=$('tu').value.trim().replace('@','').toLowerCase();if(us&&/^https?:/.test(location.protocol))return(location.protocol==='https:'?'wss://':'ws://')+location.host+'/?user='+encodeURIComponent(us);return $('ws').value}
+function conectar(u){u=typeof u==='string'?u:wsUrl();try{sock&&(sock.onclose=null,sock.close());const s2=sock=new WebSocket(u);
+ s2.onopen=()=>$('cs').textContent='✅ Conectado';s2.onerror=()=>$('cs').textContent='❌ Error de conexión';s2.onclose=()=>{$('cs').textContent='Reconectando…';setTimeout(()=>{if(sock===s2)conectar(u)},3000)};
+ s2.onmessage=e=>{try{const m=JSON.parse(e.data),ev=m.event||m.type,d=m.data||m;if(ev==='status'){$('cs').textContent=(d.ok?'✅ ':'⚠️ ')+d.msg;return}if(ev!=='gift')return;if(d.giftType===1&&d.repeatEnd===false)return;
+  const g=getGift().toLowerCase(),nm=(d.giftName||'').toLowerCase();if(g&&nm!==g&&!($('up').checked&&giftCoins()&&(d.diamondCount||0)>=giftCoins()))return;const n=d.repeatCount||1;if(d.giftPictureUrl){gImg[nm]=gImg['*']=d.giftPictureUrl}
+  add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||''},(d.diamondCount||0)*n,n)}catch(_){}}}catch(err){$('cs').textContent='❌ '+err.message}}
+function enlace(){const q=new URLSearchParams({overlay:1,ws:$('ws').value,mode:$('mode').value,user:$('tu').value.trim().replace('@',''),img:$('im').value.trim(),gift:getGift(),up:$('up').checked?1:0,join:$('sec').value,auto:$('au').value});
+ $('lk').textContent=location.href.split('?')[0]+'?'+q}
+if(Q.get('overlay')){document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('up').checked=Q.get('up')==='1';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');cfg();if($('mode').value==='free'&&+Q.get('auto'))auto(Q.get('auto'));conectar(Q.get('user')&&/^https?:/.test(location.protocol)?wsUrl():(Q.get('ws')||'ws://localhost:21213/'))}
+addEventListener('resize',()=>{key='';render()});setInterval(clock,300);if(!Q.get('overlay'))cfg();render();ui();
+</script></html>

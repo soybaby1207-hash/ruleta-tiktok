@@ -1,0 +1,2 @@
+{"name":"ruleta-tiktok","version":"3.0.0","scripts":{"start":"node server.js"},
+"dependencies":{"express":"^4.19.2","ws":"^8.18.0","tiktok-live-connector":"1.2.3"}}

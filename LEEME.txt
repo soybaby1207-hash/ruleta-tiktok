@@ -1,0 +1,10 @@
+PUBLICAR PARA TODO EL MUNDO (los usuarios no instalan nada)
+1) Crea una cuenta en GitHub y sube el contenido de esta carpeta a un repositorio nuevo.
+2) Crea una cuenta en Render.com (o Railway.app) -> New -> Web Service -> conecta ese repositorio.
+   Build command: npm install     Start command: npm start
+3) Cuando termine te dan una direccion publica tipo https://tu-app.onrender.com
+4) Cualquier persona entra en esa direccion, escribe SU @usuario de TikTok (estando en directo),
+   pulsa "Generar enlace" y pega el enlace en TikTok LIVE Studio. No instala nada.
+Avisos: los planes gratis suelen "dormirse" y cortar la conexion; para uso real conviene un plan de pago.
+Con muchos usuarios a la vez, TikTok puede limitar o bloquear la conexion desde una sola IP.
+PRUEBA LOCAL: npm install, npm start, abre http://localhost:3000
