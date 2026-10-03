@@ -6,13 +6,16 @@ const COINS={rose:1,tiktok:1,'ice cream cone':1,'heart me':1,'finger heart':5,pe
 const NM=['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'],SF=['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
 const fake=()=>({id:'t'+crypto.randomUUID(),name:NM[rnd(NM.length)]+SF[rnd(SF.length)],avatar:`https://randomuser.me/api/portraits/${rnd(2)?'women':'men'}/${rnd(99)}.jpg`});
 const app=express();app.get('/',(q,r)=>r.redirect('/ruleta.html'));app.use(express.static('public'));
+app.get('/debug',(q,res)=>{const u=String(q.query.user||'').replace('@','').trim().toLowerCase(),r=rooms[u];
+  if(!r)return res.json({error:'No hay sala para '+u+'. Abre la pagina, escribe el usuario y pulsa Conectar primero.',salas:Object.keys(rooms)});
+  res.json({usuario:u,conectadoATikTok:!!(r.conn&&r.conn.isConnected),ultimoEstado:r.status,pantallasConectadas:r.clients.size,mensajesRecibidosDeTikTok:r.methods,registroDeRegalos:r.log})});
 const srv=http.createServer(app),wss=new WebSocketServer({server:srv}),rooms={};
 function room(user){
   if(rooms[user])return rooms[user];
-  const r=rooms[user]={clients:new Set(),conn:null,dead:false,configured:false};
+  const r=rooms[user]={clients:new Set(),conn:null,dead:false,configured:false,methods:{},log:[],status:''};
   const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sec:60,au:15,im:'',cv:0,gu:{}};
   let joinT,autoT,busy=false;
-  const send=(event,data)=>{const m=JSON.stringify({event,data});r.clients.forEach(c=>c.readyState===1&&c.send(m))};
+  const send=(event,data)=>{if(event==='status')r.status=data.msg;const m=JSON.stringify({event,data});r.clients.forEach(c=>c.readyState===1&&c.send(m))};
   const state=()=>{const{players,...s}=g;send('state',{...s,now:Date.now()})},plist=()=>send('players',{players:g.players});
   const auto=s=>{clearTimeout(autoT);s=+s||0;g.autoSec=s;if(!s){g.autoAt=0;return state()}
     g.autoAt=Date.now()+s*1000;state();autoT=setTimeout(()=>{if(g.players.length>1&&!busy){g.autoAt=0;spin()}else auto(s)},s*1000)};
@@ -43,13 +46,13 @@ function room(user){
     r.conn=new Conn(user,{signApiKey:KEY});
     r.conn.on('gift',d=>{
       const nm=(d.giftName||'').toLowerCase(),want=g.gift.toLowerCase(),min=COINS[want]||0,who=d.nickname||d.uniqueId||'?';
-      const info=m=>{console.log('gift',nm,who,m);send('status',{ok:true,msg:'🎁 '+(d.giftName||'?')+' de '+who+' → '+m})};
+      const info=m=>{const line=new Date().toISOString().slice(11,19)+' '+who+' '+(d.giftName||'?')+' tipo='+d.giftType+' fin='+d.repeatEnd+' x'+d.repeatCount+' -> '+m;r.log.push(line);if(r.log.length>30)r.log.shift();console.log('gift',line);send('status',{ok:true,msg:'🎁 '+(d.giftName||'?')+' de '+who+' → '+m})};
       if(d.giftType===1&&!d.repeatEnd)return info('combo en curso, espera a que termine');
       if(want&&nm!==want&&!(g.up&&min&&(d.diamondCount||0)>=min))return info('ignorado: tu regalo configurado es "'+g.gift+'"');
       if(!['open','joining'].includes(g.phase))return info('ignorado: entradas cerradas');
       const n=d.repeatCount||1;if(d.giftPictureUrl)g.gu[nm]=g.gu['*']=d.giftPictureUrl;
-      add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||''},(d.diamondCount||0)*n,n);info('entró ✅')});
-    let lastChat=0;r.conn.on('chat',d=>{if(Date.now()-lastChat>5000){lastChat=Date.now();send('status',{ok:true,msg:'💬 Conexión activa (chat de '+(d.nickname||d.uniqueId||'?')+')'})}});
+      add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||(d.userDetails&&d.userDetails.profilePictureUrls)||''},(d.diamondCount||0)*n,n);info('entró ✅')});
+    r.conn.on('rawData',m=>{r.methods[m]=(r.methods[m]||0)+1});
     r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
     r.conn.on('disconnected',()=>{send('status',{ok:false,msg:'Desconectado, reintentando…'});retry()});
     r.conn.on('streamEnd',()=>send('status',{ok:false,msg:'El live terminó'}));
