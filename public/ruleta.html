@@ -54,13 +54,13 @@ body.o #w{max-width:none}
 <input id=tu placeholder="@tu_usuario de TikTok (en directo)"><input id=ws value="ws://localhost:21213/" title="Solo si NO usas el servidor (ej. TikFinity)"><button onclick=conectar()>Conectar</button><small id=cs>Sin conectar</small><small>Con el servidor (ver LEEME) basta tu @usuario. Si abres el archivo suelto, usa el WebSocket.</small>
 <h4>2. Reglas</h4>
 <select id=mode onchange=cfg()><option value=free>Modo libre (donar siempre)</option><option value=lock>Modo bloqueado (ventana de tiempo)</option></select>
-<select id=gift onchange=ui()></select><input id=cu placeholder="Otro regalo (nombre en inglés)" oninput=ui()><input id=im placeholder="URL de la foto del regalo (opcional)" oninput=ui()><label><input type=checkbox id=up style="width:auto"> Aceptar también regalos más caros</label><small>Modo bloqueado: las entradas se abren solas y al cerrarse empieza solo el contador de eliminación.</small>
+<select id=gift onchange=cfgKeep()></select><input id=cu placeholder="Otro regalo (nombre en inglés)" oninput=cfgKeep()><input id=im placeholder="URL de la foto del regalo (opcional)" oninput=cfgKeep()><label><input type=checkbox id=up style="width:auto" onchange=cfgKeep()> Aceptar también regalos más caros</label><small>Modo bloqueado: las entradas se abren solas y al cerrarse empieza solo el contador de eliminación.</small>
 <div class=r><input id=sec type=number value=60 title="segundos de entradas"><button onclick=abrir($('sec').value)>⏱ Abrir entradas</button></div>
 <div class=r><input id=au type=number value=15 title="segundos entre eliminaciones"><button onclick=auto($('au').value)>Auto cada N s</button></div>
 <button class=g onclick=auto(0)>Parar auto</button>
 <h4>3. Pruebas</h4>
 <button onclick=girar()>💀 ELIMINAR A UNO</button>
-<div class=r><button class=g onclick=test(1)>+1</button><button class=g onclick=test(30)>+30</button><button class=g onclick=reset()>Reiniciar</button></div><button class=g onclick="add(fake(),(giftCoins()||1)*50,50)">+1 jugador con x50 vidas</button>
+<div class=r><button class=g onclick=test(1)>+1</button><button class=g onclick=test(30)>+30</button><button class=g onclick=reset()>Reiniciar</button></div><button class=g onclick="test(1,50)">+1 jugador con x50 vidas</button>
 <h4>4. Enlace para TikTok LIVE Studio</h4>
 <button onclick=enlace()>🔗 Generar enlace</button><div id=lk>Pulsa "Generar enlace"</div>
 <button class=g onclick="navigator.clipboard.writeText($('lk').textContent)">Copiar enlace</button>
@@ -74,33 +74,30 @@ body.o #w{max-width:none}
 const $=id=>document.getElementById(id),COL=['#fe2c55','#25f4ee','#7c4dff','#00a86b','#ff6d00','#2979ff'],fmt=n=>n.toLocaleString('en-US');
 const GIFTS=[['🌹','Rose',1],['🎵','TikTok',1],['🍦','Ice Cream Cone',1],['🫶','Heart Me',1],['☝️','Finger Heart',5],['🧴','Perfume',20],['🍩','Doughnut',30],['🧢','Cap',99],['🕊️','Paper Crane',99],['👑','Little Crown',99],['🎩','Hat and Mustache',99],['🎉','Confetti',100],['🤲','Hand Hearts',100],['🕶️','Sunglasses',199],['🥊','Gold Boxing Gloves',299],['🐕','Corgi',299],['🔫','Money Gun',500],['🦢','Swan',699],['🚆','Train',899],['🌌','Galaxy',1000],['🎆','Fireworks',1088],['🐋','Whale Diving',2150],['🐱','Leon the Kitten',4888],['👸','Drama Queen',5000],['🏎️','Sports Car',7000],['🦁','Lion',29999],['🪐','TikTok Universe',44999]];
 const getGift=()=>$('cu').value.trim()||$('gift').value,giftCoins=()=>{const g=GIFTS.find(x=>x[1].toLowerCase()===getGift().toLowerCase());return g?g[2]:0};
-function setGift(n){if(!n||GIFTS.some(x=>x[1]===n))$('gift').value=n;else $('cu').value=n}
+function setGift(n){const ok=!n||GIFTS.some(x=>x[1]===n);$('gift').value=ok?n:'';$('cu').value=ok?'':n}
 $('gift').innerHTML='<option value="">✨ Cualquier regalo</option>'+GIFTS.map(g=>`<option value="${g[1]}">${g[0]} ${g[1]} · ${g[2]} 🪙</option>`).join('');$('gift').value='Rose';
-const gImg={},GIFTIMG={rose:'https://i.etsystatic.com/59375365/r/il/a6a92b/7090217774/il_794xN.7090217774_jjxr.jpg'};let players=[],phase='open',joinEnd=0,autoAt=0,gifts=0,coins=0,entries=0,joinT,autoT,spinning=false,key='',sock;
+const gImg={},GIFTIMG={rose:'https://i.etsystatic.com/59375365/r/il/a6a92b/7090217774/il_794xN.7090217774_jjxr.jpg'};let players=[],phase='open',joinEnd=0,autoAt=0,gifts=0,coins=0,entries=0,spinning=false,sock,off=0,cv=-1,pend=null,autoSec=0;
 const Q=new URLSearchParams(location.search);
-function cfg(){clearTimeout(joinT);auto(0);joinEnd=0;if($('mode').value==='lock')abrir($('sec').value);else{phase='open';ui();auto($('au').value||15)}}
-function add(p,c,n){if(!['open','joining'].includes(phase))return;n=n||1;gifts+=n;coins+=c;entries++;const ex=players.find(a=>a.id===p.id);
- if(ex){ex.lives+=n;if(p.avatar&&!ex.avatar)ex.avatar=p.avatar}else{p.lives=n;players.push(p)}
- if(!spinning)render();ui();toast(ex||p,n,ex?'add':'new')}
-function test(n){for(let i=0;i<n;i++)setTimeout(()=>add(fake(),giftCoins()||1,1),i*90)}
-function abrir(s){clearTimeout(joinT);auto(0);s=+s||60;phase='joining';joinEnd=Date.now()+s*1000;joinT=setTimeout(()=>{phase='closed';ui();auto($('au').value||15)},s*1000);ui()}
-function reset(){players=[];gifts=coins=entries=0;key='';cfg();render()}
-let autoSec=0;function auto(s){clearTimeout(autoT);s=+s||0;autoSec=s;if(!s){autoAt=0;return}autoAt=Date.now()+s*1000;autoT=setTimeout(()=>{if(players.length>1){autoAt=0;girar()}else auto(s)},s*1000)}
+let srv=false;const tx=o=>{if(srv){sock&&sock.readyState===1&&sock.send(JSON.stringify(o))}else{const f=L.cmd[o.cmd];f&&f(o)}};
+const cfgObj=r=>({cmd:'cfg',mode:$('mode').value,gift:getGift(),up:$('up').checked,im:$('im').value.trim(),sec:+$('sec').value,au:+$('au').value,restart:r});
+function cfg(){tx(cfgObj(true))}function cfgKeep(){tx(cfgObj(false))}
+function abrir(s){tx({cmd:'open',sec:+s})}function auto(s){tx({cmd:'auto',sec:+s})}function girar(){tx({cmd:'spin'})}function reset(){tx({cmd:'reset'})}
+function test(n,m){tx({cmd:'test',n,mult:m||1,c:giftCoins()||1})}
 function ganador(p){const w=$('win');w.innerHTML=(p.avatar?`<img src="${p.avatar}">`:'')+'🏆 GANADOR<br>'+p.name;w.style.display='flex';setTimeout(()=>w.style.display='none',9000)}
 const rnd=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;
 function elim(p){const c=$('elim');c.innerHTML='';const ph=()=>{const d=document.createElement('div');d.className='ei';d.textContent=(p.name||'?')[0].toUpperCase();return d};
  if(p.avatar){const i=new Image();i.src=p.avatar;i.onerror=()=>i.replaceWith(ph());c.appendChild(i)}else c.appendChild(ph());
  const n=document.createElement('div');n.className='en';n.textContent=p.name;const x=document.createElement('div');x.className='ex';x.textContent='ELIMINADO';c.append(n,x);
  c.style.display='flex';c.style.animation='none';void c.offsetWidth;c.style.animation='';setTimeout(()=>c.style.display='none',1500)}
-function girar(){if(spinning||!players.length)return;if(players.length===1)return ganador(players[0]);
- spinning=true;const g=$('g'),t=players[rnd(players.length)],els=players.map(p=>$('c'+p.id)).filter(Boolean);let sel=$('sel');
+function anim(d){if(spinning)return;const t=players.find(p=>p.id===d.id);if(!t)return;spinning=true;
+ const g=$('g'),els=players.map(p=>$('c'+p.id)).filter(Boolean);let sel=$('sel');
  if(!sel){sel=document.createElement('div');sel.id='sel';g.appendChild(sel)}
  const go=e=>{sel.style.cssText=`display:block;left:${e.offsetLeft}px;top:${e.offsetTop}px;width:${e.offsetWidth}px;height:${e.offsetHeight}px`};
- const fin=()=>{spinning=false;render();if(players.length===1){ganador(players[0]);auto(0)}else if(autoSec)auto(autoSec)};
+ const fin=()=>{spinning=false;if(pend){players=pend;pend=null}render();ui()};
  let last;const iv=setInterval(()=>{let e;do{e=els[rnd(els.length)]}while(e===last&&els.length>1);last=e;go(e)},55);
  setTimeout(()=>{clearInterval(iv);const e=$('c'+t.id);if(e)go(e);
-  if(t.lives>1){t.lives--;if(e){e.classList.add('hit');setTimeout(()=>e.classList.remove('hit'),700)}toast(t,0,'life');render();ui();setTimeout(()=>{sel.style.display='none';fin()},1100)}
-  else{if(e)e.classList.add('dead');setTimeout(()=>{sel.style.display='none';elim(t);players=players.filter(p=>p.id!==t.id);render();ui();setTimeout(fin,1500)},350)}},1400)}
+  if(d.life){if(e){e.classList.add('hit');setTimeout(()=>e.classList.remove('hit'),700)}toast({...t,lives:t.lives-1},0,'life');setTimeout(()=>{sel.style.display='none';fin()},1100)}
+  else{if(e)e.classList.add('dead');setTimeout(()=>{sel.style.display='none';elim(t);setTimeout(fin,1500)},350)}},1400)}
 const els={};let toT;
 function toast(p,n,k){const t=$('toast');t.innerHTML='';if(p.avatar){const i=new Image();i.src=p.avatar;t.appendChild(i)}const b=document.createElement('b');b.textContent=p.name;t.append(b);
  if(n>1){const m=document.createElement('em');m.textContent=' x'+n;t.append(m)}
@@ -119,20 +116,46 @@ function render(){const g=$('g'),h=$('gh'),n=Math.max(1,players.length),W=h.clie
   const bd=document.createElement('b');bd.className='lv';d.appendChild(bd);d.bd=bd;const sp=document.createElement('span');sp.textContent=p.name;d.appendChild(sp);g.appendChild(d);setTimeout(()=>d.classList.remove('new'),800)}
   d.bd.textContent='❤ '+(p.lives||1);d.bd.style.display=p.lives>1?'block':'none';d.bd.style.fontSize=Math.max(10,size/5)+'px';
   d.lastChild.style.fontSize=fs+'px';d.lastChild.style.display=(fs>=10&&players.length<=80)?'block':'none'})}
-const NM=['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'],SF=['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
-function fake(){const w=Math.random()<.5,i=Math.random()*99|0;return{id:'t'+Math.random(),name:NM[Math.random()*NM.length|0]+SF[Math.random()*SF.length|0],avatar:`https://randomuser.me/api/portraits/${w?'women':'men'}/${i}.jpg`}}
 function set(id,t){const e=$(id);if(e.textContent!==t){e.textContent=t;e.classList.remove('bump');void e.offsetWidth;e.classList.add('bump')}}
 function ui(){const o=phase==='joining'||phase==='open';const lk=$('mode').value==='lock';$('p2').textContent=lk?(phase==='closed'?'🔒 LOCK MODE':'LOCK MODE'):'OPEN MODE';$('p2').style.background=lk?'#ffb347':'#5ce0a8';
  const gi=GIFTS.find(x=>x[1]===getGift());const u=$('im').value.trim()||GIFTIMG[getGift().toLowerCase()]||gImg[getGift().toLowerCase()]||gImg['*'];$('ge').innerHTML=u?`<img src="${u}" style="height:1.2em;vertical-align:middle" onerror="this.replaceWith('🎁')">`:(gi?gi[0]:'🎁');set('ng',fmt(gifts));set('np',fmt(players.length));set('nc',fmt(coins));set('ne','⭐ '+fmt(entries))}
-function clock(){const e=autoAt||(phase==='joining'?joinEnd:0),l=e?Math.max(0,Math.ceil((e-Date.now())/1000)):0;$('t').textContent=Math.floor(l/60)+':'+String(l%60).padStart(2,'0');$('t').classList.toggle('blink',!!e&&l>0&&l<=5);$('hint').textContent=(autoSec&&players.length<2&&!spinning)?'Esperando al menos 2 jugadores…':''}
+function clock(){const e=autoAt||(phase==='joining'?joinEnd:0),l=e?Math.max(0,Math.ceil((e-Date.now()-off)/1000)):0;$('t').textContent=Math.floor(l/60)+':'+String(l%60).padStart(2,'0');$('t').classList.toggle('blink',!!e&&l>0&&l<=5);$('hint').textContent=(autoSec&&players.length<2&&!spinning)?'Esperando al menos 2 jugadores…':''}
 function wsUrl(){const us=$('tu').value.trim().replace('@','').toLowerCase();if(us&&/^https?:/.test(location.protocol))return(location.protocol==='https:'?'wss://':'ws://')+location.host+'/?user='+encodeURIComponent(us);return $('ws').value}
+function handle(m){const d=m.data||{};switch(m.event){
+  case'status':$('cs').textContent=(d.ok?'✅ ':'⚠️ ')+d.msg;break;
+  case'state':off=d.now-Date.now();phase=d.phase;joinEnd=d.joinEnd;autoAt=d.autoAt;autoSec=d.autoSec;gifts=d.gifts;coins=d.coins;entries=d.entries;Object.assign(gImg,d.gu);
+   if(d.cv!==cv){cv=d.cv;$('mode').value=d.mode;setGift(d.gift);$('up').checked=d.up;$('im').value=d.im||'';$('sec').value=d.sec;$('au').value=d.au}ui();break;
+  case'players':if(spinning)pend=d.players;else{players=d.players;render();ui()}break;
+  case'spin':anim(d);break;case'toast':toast(d.p,d.n,d.k);break;case'win':ganador(d.p)}}
 function conectar(u){u=typeof u==='string'?u:wsUrl();try{sock&&(sock.onclose=null,sock.close());const s2=sock=new WebSocket(u);
- s2.onopen=()=>$('cs').textContent='✅ Conectado';s2.onerror=()=>$('cs').textContent='❌ Error de conexión';s2.onclose=()=>{$('cs').textContent='Reconectando…';setTimeout(()=>{if(sock===s2)conectar(u)},3000)};
- s2.onmessage=e=>{try{const m=JSON.parse(e.data),ev=m.event||m.type,d=m.data||m;if(ev==='status'){$('cs').textContent=(d.ok?'✅ ':'⚠️ ')+d.msg;return}if(ev!=='gift')return;if(d.giftType===1&&d.repeatEnd===false)return;
-  const g=getGift().toLowerCase(),nm=(d.giftName||'').toLowerCase();if(g&&nm!==g&&!($('up').checked&&giftCoins()&&(d.diamondCount||0)>=giftCoins()))return;const n=d.repeatCount||1;if(d.giftPictureUrl){gImg[nm]=gImg['*']=d.giftPictureUrl}
-  add({id:String(d.userId||d.uniqueId),name:d.nickname||d.uniqueId||'?',avatar:d.profilePictureUrl||''},(d.diamondCount||0)*n,n)}catch(_){}}}catch(err){$('cs').textContent='❌ '+err.message}}
+ s2.onopen=()=>{srv=true;L.stop();cv=-1;$('cs').textContent='✅ Conectado al servidor';if(Q.get('overlay'))tx({...cfgObj(true),soft:true})};
+ s2.onerror=()=>{if(!srv)$('cs').textContent='❌ Sin servidor · modo prueba local'};
+ s2.onclose=()=>{if(srv)$('cs').textContent='Reconectando…';setTimeout(()=>{if(sock===s2)conectar(u)},srv?3000:10000)};
+ s2.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error(err)}}}catch(err){$('cs').textContent='❌ '+err.message}}
+const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sec:60,au:15,im:'',cv:0,gu:{}};
+ let joinT,autoT,busy=false,on=true,cf=false;
+ const send=(event,data)=>{if(on)handle({event,data:JSON.parse(JSON.stringify(data))})};
+ const state=()=>{const{players,...s}=g;send('state',{...s,now:Date.now()})},plist=()=>send('players',{players:g.players});
+ const auto=s=>{clearTimeout(autoT);s=+s||0;g.autoSec=s;if(!s){g.autoAt=0;return state()}
+  g.autoAt=Date.now()+s*1000;state();autoT=setTimeout(()=>{if(g.players.length>1&&!busy){g.autoAt=0;spin()}else auto(s)},s*1000)};
+ const open=s=>{clearTimeout(joinT);auto(0);s=+s||60;g.phase='joining';g.joinEnd=Date.now()+s*1000;state();joinT=setTimeout(()=>{g.phase='closed';auto(g.au)},s*1000)};
+ function spin(){if(busy||!g.players.length)return;if(g.players.length===1)return send('win',{p:g.players[0]});
+  busy=true;const t=g.players[rnd(g.players.length)],life=t.lives>1;send('spin',{id:t.id,life});
+  const end=()=>{busy=false;if(g.players.length===1){send('win',{p:g.players[0]});auto(0)}else if(g.autoSec)auto(g.autoSec);else state()};
+  if(life)setTimeout(()=>{t.lives--;plist();setTimeout(end,1100)},1400);
+  else setTimeout(()=>{g.players=g.players.filter(x=>x!==t);plist();state();setTimeout(end,1500)},1750)}
+ const add=(p,c,n)=>{if(!['open','joining'].includes(g.phase))return;n=n||1;g.gifts+=n;g.coins+=c;g.entries++;const ex=g.players.find(a=>a.id===p.id);
+  if(ex){ex.lives+=n}else{p.lives=n;g.players.push(p)}send('toast',{p:ex||p,n,k:ex?'add':'new'});plist();state()};
+ const cfg=(c,soft)=>{if(soft&&cf)return;cf=true;g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;g.im=c.im||'';g.sec=+c.sec||60;if(c.au!==undefined)g.au=+c.au||0;g.cv++;
+  if(c.restart){clearTimeout(joinT);g.joinEnd=0;if(g.mode==='lock')open(g.sec);else{g.phase='open';auto(g.au)}}state()};
+ const NM=['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'],SF=['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
+ const fake=()=>({id:'t'+Math.random(),name:NM[rnd(NM.length)]+SF[rnd(SF.length)],avatar:`https://randomuser.me/api/portraits/${rnd(2)?'women':'men'}/${rnd(99)}.jpg`});
+ const cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;cfg({...g,restart:true});plist()},
+  test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
+ return{cmd,start:()=>auto(15),stop:()=>{on=false;clearTimeout(joinT);clearTimeout(autoT)}}})();
 function enlace(){const q=new URLSearchParams({overlay:1,ws:$('ws').value,mode:$('mode').value,user:$('tu').value.trim().replace('@',''),img:$('im').value.trim(),gift:getGift(),up:$('up').checked?1:0,join:$('sec').value,auto:$('au').value});
  $('lk').textContent=location.href.split('?')[0]+'?'+q}
-if(Q.get('overlay')){document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('up').checked=Q.get('up')==='1';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');cfg();if($('mode').value==='free'&&+Q.get('auto'))auto(Q.get('auto'));conectar(Q.get('user')&&/^https?:/.test(location.protocol)?wsUrl():(Q.get('ws')||'ws://localhost:21213/'))}
-addEventListener('resize',()=>{key='';render()});setInterval(clock,300);if(!Q.get('overlay'))cfg();render();ui();
+addEventListener('resize',()=>render());setInterval(clock,300);render();ui();
+$('cs').textContent='Modo prueba local (sin servidor)';L.start();
+if(Q.get('overlay')){document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('up').checked=Q.get('up')==='1';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
