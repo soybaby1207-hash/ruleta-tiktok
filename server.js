@@ -1,6 +1,7 @@
 // Servidor: una sala por usuario de TikTok. La página se conecta con ?user=NOMBRE y recibe los regalos.
 const express=require('express'),http=require('http'),{WebSocketServer}=require('ws');
-const T=require('tiktok-live-connector');const Conn=T.WebcastPushConnection||T.TikTokLiveConnection;
+let Conn;const ready=import('tiktok-live-connector/legacy').then(m=>{Conn=m.WebcastPushConnection});
+const KEY=process.env.EULER_API_KEY||undefined;
 const app=express();app.get('/',(q,r)=>r.redirect('/ruleta.html'));app.use(express.static('public'));
 const srv=http.createServer(app),wss=new WebSocketServer({server:srv}),rooms={};
 function room(user){
@@ -8,15 +9,16 @@ function room(user){
   const r=rooms[user]={clients:new Set(),conn:null,dead:false};
   const send=o=>{const m=JSON.stringify(o);r.clients.forEach(c=>c.readyState===1&&c.send(m))};
   const retry=()=>{if(!r.dead)setTimeout(connect,15000)};
-  function connect(){
+  async function connect(){
+    await ready;
     if(r.dead||!r.clients.size)return retry();
-    r.conn=new Conn(user);
+    r.conn=new Conn(user,{signApiKey:KEY});
     r.conn.on('gift',d=>send({event:'gift',data:{giftName:d.giftName,giftType:d.giftType,repeatEnd:d.repeatEnd,repeatCount:d.repeatCount,
       diamondCount:d.diamondCount,userId:d.userId,uniqueId:d.uniqueId,nickname:d.nickname,profilePictureUrl:d.profilePictureUrl,giftPictureUrl:d.giftPictureUrl}}));
     r.conn.on('disconnected',()=>{send({event:'status',data:{ok:false,msg:'Desconectado, reintentando…'}});retry()});
     r.conn.on('streamEnd',()=>send({event:'status',data:{ok:false,msg:'El live terminó'}}));
     r.conn.connect().then(()=>send({event:'status',data:{ok:true,msg:'Conectado a @'+user}}))
-      .catch(e=>{send({event:'status',data:{ok:false,msg:'No se pudo conectar a @'+user+' ('+(e.message||e)+')'}});retry()});
+      .catch(e=>{send({event:'status',data:{ok:false,msg:'No se pudo conectar a @'+user+' ('+String(e.message||e).slice(0,160)+')'+(KEY?'':' · Si es un error de firma/403, añade la variable EULER_API_KEY en Render.')}});retry()});
   }
   r.start=connect;return r;
 }
