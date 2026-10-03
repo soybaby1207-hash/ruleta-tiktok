@@ -1,5 +1,6 @@
 // Servidor: una sala por usuario de TikTok. La página se conecta con ?user=NOMBRE y recibe los regalos.
 const express=require('express'),http=require('http'),{WebSocketServer}=require('ws');
+process.on('uncaughtException',e=>console.error('uncaught',e&&e.message));process.on('unhandledRejection',e=>console.error('unhandled',e&&e.message||e));
 let Conn;const ready=import('tiktok-live-connector/legacy').then(m=>{Conn=m.WebcastPushConnection});
 const KEY=process.env.EULER_API_KEY||undefined;
 const app=express();app.get('/',(q,r)=>r.redirect('/ruleta.html'));app.use(express.static('public'));
@@ -15,6 +16,7 @@ function room(user){
     r.conn=new Conn(user,{signApiKey:KEY});
     r.conn.on('gift',d=>send({event:'gift',data:{giftName:d.giftName,giftType:d.giftType,repeatEnd:d.repeatEnd,repeatCount:d.repeatCount,
       diamondCount:d.diamondCount,userId:d.userId,uniqueId:d.uniqueId,nickname:d.nickname,profilePictureUrl:d.profilePictureUrl,giftPictureUrl:d.giftPictureUrl}}));
+    r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
     r.conn.on('disconnected',()=>{send({event:'status',data:{ok:false,msg:'Desconectado, reintentando…'}});retry()});
     r.conn.on('streamEnd',()=>send({event:'status',data:{ok:false,msg:'El live terminó'}}));
     r.conn.connect().then(()=>send({event:'status',data:{ok:true,msg:'Conectado a @'+user}}))
