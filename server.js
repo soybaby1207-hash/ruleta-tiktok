@@ -213,7 +213,7 @@ function room(user) {
     state();
   };
 
-  // Conectar a TikTok Live
+  // Conexión a TikTok Live optimizada
   const connectTikTok = async () => {
     if (r.conn) return;
     await ready;
@@ -223,7 +223,7 @@ function room(user) {
         processInitialData: false,
         enableExtendedGiftInfo: true,
         requestPollingIntervalMs: 2000,
-        signApiKey: process.env.EULER_API_KEY // <--- Clave de Euler añadida aquí
+        signApiKey: process.env.EULER_API_KEY || process.env.SIGN_API_KEY || ''
       });
 
       r.conn.on('connected', () => {
