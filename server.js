@@ -222,7 +222,8 @@ function room(user) {
       r.conn = new Conn(user, {
         processInitialData: false,
         enableExtendedGiftInfo: true,
-        requestPollingIntervalMs: 2000
+        requestPollingIntervalMs: 2000,
+        signApiKey: process.env.EULER_API_KEY // <--- Clave de Euler añadida aquí
       });
 
       r.conn.on('connected', () => {
@@ -252,20 +253,17 @@ function room(user) {
         r.log.unshift({ t: Date.now(), user: nickname, gift: giftName, coins, count });
         if (r.log.length > 40) r.log.pop();
 
-        // ¿Puede entrar este regalo?
         const configured = (g.gift || '').toLowerCase().trim();
         let canEnter = false;
 
         if (g.mode === 'free') {
-          canEnter = true; // cualquier regalo
+          canEnter = true;
         } else {
-          // modo lock / gift
           if (!configured) {
-            canEnter = true; // si no hay regalo configurado, acepta cualquiera
+            canEnter = true;
           } else if (giftName === configured) {
             canEnter = true;
           } else if (g.up) {
-            // aceptar regalos más caros
             const configuredCoins = COINS[configured] || 0;
             if (coins >= configuredCoins && configuredCoins > 0) canEnter = true;
           }
@@ -277,7 +275,6 @@ function room(user) {
             name: nickname,
             avatar
           };
-          // 1 vida por cada unidad del regalo (o por cada coin si quieres)
           add(player, coins, count);
         }
 
@@ -294,10 +291,8 @@ function room(user) {
     }
   };
 
-  // API pública de la sala
   r.join = (ws) => {
     r.clients.add(ws);
-    // Enviar estado actual inmediatamente
     state();
     plist();
     if (r.status) send('status', { ok: true, msg: r.status });
@@ -315,7 +310,6 @@ function room(user) {
       switch (cmd) {
         case 'cfg':
           cfg(msg, msg.soft);
-          // Conectar a TikTok la primera vez que configuran
           if (!r.conn) await connectTikTok();
           break;
         case 'open':
@@ -334,7 +328,6 @@ function room(user) {
           plist();
           break;
         case 'test':
-          // Solo para pruebas locales
           break;
         default:
           break;
@@ -344,14 +337,12 @@ function room(user) {
     }
   };
 
-  // Estado inicial
   g.phase = 'open';
   state();
 
   return r;
 }
 
-// WebSocket
 wss.on('connection', (ws, req) => {
   const params = url.parse(req.url, true).query;
   const user = String(params.user || '').replace('@', '').trim().toLowerCase();
@@ -364,7 +355,6 @@ wss.on('connection', (ws, req) => {
   const currentRoom = room(user);
   currentRoom.join(ws);
 
-  // Conectar a TikTok automáticamente
   if (!currentRoom.conn) {
     currentRoom.handle(JSON.stringify({ cmd: 'cfg', soft: true }));
   }
