@@ -1,17 +1,16 @@
-process.on('uncaughtException', e => console.error('uncaught', e && e.message));
-process.on('unhandledRejection', e => console.error('unhandled', e && (e.message || e)));
+process.on('uncaughtException', e => console.error('uncaught', e?.message || e));
+process.on('unhandledRejection', e => console.error('unhandled', e?.message || e));
 
 const express = require('express');
 const http = require('http');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
+const url = require('url');
 
 let Conn;
 const ready = import('tiktok-live-connector/legacy').then(m => {
   Conn = m.WebcastPushConnection;
 });
-
-const KEY = process.env.EULER_API_KEY || undefined;
 
 const rnd = n => crypto.randomInt(n);
 
@@ -24,15 +23,6 @@ const COINS = {
   'drama queen': 5000, 'sports car': 7000, lion: 29999, 'tiktok universe': 44999
 };
 
-const NM = ['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'];
-const SF = ['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
-
-const fake = () => ({
-  id: 't' + crypto.randomUUID(),
-  name: NM[rnd(NM.length)] + SF[rnd(SF.length)],
-  avatar: `https://randomuser.me/api/portraits/${rnd(2) ? 'women' : 'men'}/${rnd(99)}.jpg`
-});
-
 const app = express();
 app.get('/', (req, res) => res.redirect('/ruleta.html'));
 app.use(express.static('public'));
@@ -40,19 +30,14 @@ app.use(express.static('public'));
 app.get('/debug', (req, res) => {
   const u = String(req.query.user || '').replace('@', '').trim().toLowerCase();
   const r = rooms[u];
-  if (!r) {
-    return res.json({
-      error: 'No hay sala para ' + u + '. Abre la página, escribe el usuario y pulsa Conectar primero.',
-      salas: Object.keys(rooms)
-    });
-  }
+  if (!r) return res.json({ error: 'No hay sala', salas: Object.keys(rooms) });
   res.json({
     usuario: u,
-    conectadoATikTok: !!(r.conn && r.conn.isConnected),
+    conectadoATikTok: !!(r.conn && r.conn.state === 'CONNECTED'),
     ultimoEstado: r.status,
-    pantallasConectadas: r.clients.size,
-    mensajesRecibidosDeTikTok: r.methods,
-    registroDeRegalos: r.log
+    pantallas: r.clients.size,
+    metodos: r.methods,
+    log: r.log.slice(0, 20)
   });
 });
 
@@ -66,8 +51,6 @@ function room(user) {
   const r = rooms[user] = {
     clients: new Set(),
     conn: null,
-    dead: false,
-    configured: false,
     methods: {},
     log: [],
     status: ''
@@ -92,13 +75,13 @@ function room(user) {
     gu: {}
   };
 
-  let joinT, autoT, busy = false;
+  let joinT = null, autoT = null, busy = false;
 
   const send = (event, data) => {
-    if (event === 'status') r.status = data.msg;
-    const m = JSON.stringify({ event, data });
+    if (event === 'status') r.status = data.msg || '';
+    const msg = JSON.stringify({ event, data });
     r.clients.forEach(c => {
-      if (c.readyState === 1) c.send(m);
+      if (c.readyState === 1) c.send(msg);
     });
   };
 
@@ -107,9 +90,7 @@ function room(user) {
     send('state', { ...s, now: Date.now() });
   };
 
-  const broadcastPlayers = () => {
-    send('players', g.players);
-  };
+  const plist = () => send('players', { players: g.players });
 
   const clearTimers = () => {
     if (joinT) clearTimeout(joinT);
@@ -117,49 +98,122 @@ function room(user) {
     joinT = autoT = null;
   };
 
-  const startJoin = () => {
-    clearTimers();
-    g.phase = 'open';
-    g.joinEnd = Date.now() + g.sec * 1000;
-    g.autoAt = 0;
-    g.autoSec = 0;
-    state();
-    joinT = setTimeout(() => {
-      if (g.phase === 'open') startAuto();
-    }, g.sec * 1000);
-  };
-
-  const startAuto = () => {
-    clearTimers();
-    g.phase = 'auto';
-    g.autoAt = Date.now();
-    g.autoSec = g.au;
+  const auto = (s) => {
+    clearTimeout(autoT);
+    s = +s || 0;
+    g.autoSec = s;
+    if (!s) {
+      g.autoAt = 0;
+      return state();
+    }
+    g.autoAt = Date.now() + s * 1000;
     state();
     autoT = setTimeout(() => {
-      if (g.phase === 'auto') {
-        g.phase = 'closed';
-        state();
+      if (g.players.length > 1 && !busy) {
+        g.autoAt = 0;
+        spin();
+      } else {
+        auto(s);
       }
-    }, g.au * 1000);
+    }, s * 1000);
   };
 
-  const addPlayer = (name, avatar, entries = 1) => {
-    const existing = g.players.find(p => p.name === name);
-    if (existing) {
-      existing.entries += entries;
-    } else {
-      g.players.push({
-        id: 'p' + crypto.randomUUID(),
-        name,
-        avatar: avatar || `https://randomuser.me/api/portraits/${rnd(2) ? 'women' : 'men'}/${rnd(99)}.jpg`,
-        entries
-      });
+  const open = (s) => {
+    clearTimeout(joinT);
+    auto(0);
+    s = +s || 60;
+    g.phase = 'joining';
+    g.joinEnd = Date.now() + s * 1000;
+    state();
+    joinT = setTimeout(() => {
+      g.phase = 'closed';
+      auto(g.au);
+    }, s * 1000);
+  };
+
+  const spin = () => {
+    if (busy || !g.players.length) return;
+    if (g.players.length === 1) {
+      send('win', { p: g.players[0] });
+      return;
     }
-    g.entries = g.players.reduce((sum, p) => sum + p.entries, 0);
-    broadcastPlayers();
+    busy = true;
+    const t = g.players[rnd(g.players.length)];
+    const life = t.lives > 1;
+    send('spin', { id: t.id, life });
+
+    const end = () => {
+      busy = false;
+      if (g.players.length === 1) {
+        send('win', { p: g.players[0] });
+        auto(0);
+      } else if (g.autoSec) {
+        auto(g.autoSec);
+      } else {
+        state();
+      }
+    };
+
+    if (life) {
+      setTimeout(() => {
+        t.lives--;
+        plist();
+        setTimeout(end, 1100);
+      }, 1400);
+    } else {
+      setTimeout(() => {
+        g.players = g.players.filter(x => x !== t);
+        plist();
+        state();
+        setTimeout(end, 1500);
+      }, 1750);
+    }
+  };
+
+  const add = (p, c, n = 1) => {
+    if (!['open', 'joining'].includes(g.phase)) return;
+
+    g.gifts += n;
+    g.coins += c * n;
+    g.entries += n;
+
+    const ex = g.players.find(a => a.id === p.id || a.name === p.name);
+    if (ex) {
+      ex.lives += n;
+      send('toast', { p: ex, n, k: 'add' });
+    } else {
+      p.lives = n;
+      g.players.push(p);
+      send('toast', { p, n, k: 'new' });
+    }
+    plist();
     state();
   };
 
+  const cfg = (c, soft = false) => {
+    if (soft && g.cv > 0) return;
+    g.mode = c.mode === 'lock' ? 'lock' : 'free';
+    if (c.gift !== undefined) g.gift = String(c.gift || '');
+    g.up = !!c.up;
+    g.im = c.im || '';
+    g.sec = +c.sec || 60;
+    if (c.au !== undefined) g.au = +c.au || 0;
+    g.cv++;
+
+    if (c.restart) {
+      clearTimeout(joinT);
+      g.joinEnd = 0;
+      if (g.mode === 'lock') {
+        open(g.sec);
+      } else {
+        g.phase = 'open';
+        auto(g.au);
+      }
+    }
+    state();
+  };
+
+  // Conectar a TikTok Live
   const connectTikTok = async () => {
     if (r.conn) return;
     await ready;
@@ -172,170 +226,155 @@ function room(user) {
       });
 
       r.conn.on('connected', () => {
-        send('status', { msg: 'Conectado a TikTok Live' });
+        send('status', { ok: true, msg: 'Conectado a TikTok Live de @' + user });
         r.methods.connected = (r.methods.connected || 0) + 1;
       });
 
       r.conn.on('disconnected', () => {
-        send('status', { msg: 'Desconectado de TikTok' });
+        send('status', { ok: false, msg: 'Desconectado de TikTok' });
         r.conn = null;
       });
 
       r.conn.on('error', err => {
-        send('status', { msg: 'Error TikTok: ' + (err?.message || err) });
+        send('status', { ok: false, msg: 'Error TikTok: ' + (err?.message || err) });
       });
 
       r.conn.on('gift', data => {
         r.methods.gift = (r.methods.gift || 0) + 1;
 
-        const giftName = (data.giftName || data.extendedGiftInfo?.name || '').toLowerCase();
+        const giftName = (data.giftName || data.extendedGiftInfo?.name || '').toLowerCase().trim();
         const coins = COINS[giftName] || data.diamondCount || 1;
-        const uniqueId = data.uniqueId || data.userId || 'anon';
         const nickname = data.nickname || data.uniqueId || 'Anónimo';
-        const avatar = data.profilePictureUrl || data.user?.profilePictureUrl;
+        const uniqueId = data.uniqueId || data.userId || nickname;
+        const avatar = data.profilePictureUrl || data.user?.profilePictureUrl || '';
+        const count = data.repeatCount || 1;
 
-        r.log.unshift({
-          t: Date.now(),
-          user: nickname,
-          gift: giftName,
-          coins,
-          count: data.repeatCount || 1
-        });
-        if (r.log.length > 50) r.log.pop();
+        r.log.unshift({ t: Date.now(), user: nickname, gift: giftName, coins, count });
+        if (r.log.length > 40) r.log.pop();
 
-        g.gifts += (data.repeatCount || 1);
-        g.coins += coins * (data.repeatCount || 1);
+        // ¿Puede entrar este regalo?
+        const configured = (g.gift || '').toLowerCase().trim();
+        let canEnter = false;
 
-        // Modo free → cualquiera puede entrar
-        // Modo gift → solo el regalo configurado
-        if (g.mode === 'free' || giftName === g.gift.toLowerCase()) {
-          const entries = Math.max(1, Math.floor(coins / 1)); // 1 entry por coin (ajusta si quieres)
-          addPlayer(nickname, avatar, entries * (data.repeatCount || 1));
+        if (g.mode === 'free') {
+          canEnter = true; // cualquier regalo
+        } else {
+          // modo lock / gift
+          if (!configured) {
+            canEnter = true; // si no hay regalo configurado, acepta cualquiera
+          } else if (giftName === configured) {
+            canEnter = true;
+          } else if (g.up) {
+            // aceptar regalos más caros
+            const configuredCoins = COINS[configured] || 0;
+            if (coins >= configuredCoins && configuredCoins > 0) canEnter = true;
+          }
+        }
+
+        if (canEnter) {
+          const player = {
+            id: uniqueId,
+            name: nickname,
+            avatar
+          };
+          // 1 vida por cada unidad del regalo (o por cada coin si quieres)
+          add(player, coins, count);
         }
 
         state();
       });
 
-      r.conn.on('chat', data => {
-        r.methods.chat = (r.methods.chat || 0) + 1;
-        // Puedes añadir lógica de comandos aquí si quieres
-      });
-
-      r.conn.on('member', data => {
-        r.methods.member = (r.methods.member || 0) + 1;
-      });
+      r.conn.on('chat', () => { r.methods.chat = (r.methods.chat || 0) + 1; });
+      r.conn.on('member', () => { r.methods.member = (r.methods.member || 0) + 1; });
 
       await r.conn.connect();
     } catch (err) {
-      send('status', { msg: 'No se pudo conectar: ' + (err?.message || err) });
+      send('status', { ok: false, msg: 'No se pudo conectar a TikTok: ' + (err?.message || err) });
       r.conn = null;
     }
-  };
-
-  // Configuración inicial de la sala
-  const configure = (cfg = {}) => {
-    if (cfg.mode) g.mode = cfg.mode;
-    if (cfg.gift) g.gift = cfg.gift;
-    if (cfg.sec) g.sec = Number(cfg.sec) || 60;
-    if (cfg.au) g.au = Number(cfg.au) || 15;
-    if (cfg.im) g.im = cfg.im;
-    r.configured = true;
-    state();
   };
 
   // API pública de la sala
   r.join = (ws) => {
     r.clients.add(ws);
-    ws.send(JSON.stringify({ event: 'state', data: { ...g, players: undefined, now: Date.now() } }));
-    ws.send(JSON.stringify({ event: 'players', data: g.players }));
-    if (r.status) ws.send(JSON.stringify({ event: 'status', data: { msg: r.status } }));
+    // Enviar estado actual inmediatamente
+    state();
+    plist();
+    if (r.status) send('status', { ok: true, msg: r.status });
   };
 
   r.leave = (ws) => {
     r.clients.delete(ws);
   };
 
-  r.handle = async (msg) => {
+  r.handle = async (raw) => {
     try {
-      const { action, data } = JSON.parse(msg);
+      const msg = JSON.parse(raw);
+      const cmd = msg.cmd;
 
-      switch (action) {
-        case 'connect':
-          await connectTikTok();
+      switch (cmd) {
+        case 'cfg':
+          cfg(msg, msg.soft);
+          // Conectar a TikTok la primera vez que configuran
+          if (!r.conn) await connectTikTok();
           break;
-        case 'config':
-          configure(data);
+        case 'open':
+          open(msg.sec || g.sec);
           break;
-        case 'start':
-          startJoin();
+        case 'auto':
+          auto(msg.sec);
           break;
-        case 'stop':
-          clearTimers();
-          g.phase = 'closed';
-          state();
+        case 'spin':
+          spin();
           break;
         case 'reset':
-          clearTimers();
           g.players = [];
-          g.gifts = 0;
-          g.coins = 0;
-          g.entries = 0;
-          g.phase = 'open';
-          g.joinEnd = 0;
-          g.autoAt = 0;
-          broadcastPlayers();
-          state();
+          g.gifts = g.coins = g.entries = 0;
+          cfg({ ...g, restart: true });
+          plist();
           break;
-        case 'fake':
-          // Añadir jugadores falsos (útil para pruebas)
-          for (let i = 0; i < (data?.count || 5); i++) {
-            const f = fake();
-            addPlayer(f.name, f.avatar, rnd(5) + 1);
-          }
+        case 'test':
+          // Solo para pruebas locales
           break;
         default:
           break;
       }
     } catch (e) {
-      console.error('handle error', e.message);
+      console.error('handle error:', e.message);
     }
   };
 
-  // Iniciar en fase abierta
-  startJoin();
+  // Estado inicial
+  g.phase = 'open';
+  state();
 
   return r;
 }
 
-// WebSocket connections
-wss.on('connection', (ws) => {
-  let currentRoom = null;
-  let currentUser = null;
+// WebSocket
+wss.on('connection', (ws, req) => {
+  const params = url.parse(req.url, true).query;
+  const user = String(params.user || '').replace('@', '').trim().toLowerCase();
 
-  ws.on('message', async (raw) => {
-    try {
-      const msg = JSON.parse(raw.toString());
+  if (!user) {
+    ws.close();
+    return;
+  }
 
-      // Primer mensaje debe ser { user: "usuario" }
-      if (msg.user && !currentRoom) {
-        currentUser = String(msg.user).replace('@', '').trim().toLowerCase();
-        if (!currentUser) return;
+  const currentRoom = room(user);
+  currentRoom.join(ws);
 
-        currentRoom = room(currentUser);
-        currentRoom.join(ws);
-        return;
-      }
+  // Conectar a TikTok automáticamente
+  if (!currentRoom.conn) {
+    currentRoom.handle(JSON.stringify({ cmd: 'cfg', soft: true }));
+  }
 
-      if (currentRoom) {
-        await currentRoom.handle(raw.toString());
-      }
-    } catch (e) {
-      console.error('ws message error', e.message);
-    }
+  ws.on('message', (raw) => {
+    currentRoom.handle(raw.toString());
   });
 
   ws.on('close', () => {
-    if (currentRoom) currentRoom.leave(ws);
+    currentRoom.leave(ws);
   });
 });
 
