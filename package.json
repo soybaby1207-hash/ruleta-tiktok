@@ -10,6 +10,6 @@
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.18.0",
-    "piratetok-live-js": "^1.0.0"
+    "piratetok-live-js": "^0.1.5"
   }
 }
