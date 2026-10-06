@@ -27,29 +27,31 @@ setInterval(()=>fs.readdir(UP,(e,l)=>(l||[]).forEach(f=>fs.stat(path.join(UP,f),
 const srv=http.createServer(app),wss=new WebSocketServer({server:srv}),rooms={};
 function room(user){
   if(rooms[user])return rooms[user];
-  const r=rooms[user]={clients:new Set(),conn:null,dead:false,configured:false,methods:{},log:[],status:'',pics:{}};
-  const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sc:true,sec:60,au:15,batch:1,vs1sec:25,im:'',bgt:'none',bgc:'#101018',bgu:'',bgk:'img',bgl:true,bgfit:'cover',bgpos:'center',cv:0,gu:{},was1v1:false};
+  const r=rooms[user]={clients:new Set(),conn:null,dead:false,configured:false,methods:{},log:[],status:'',pics:{},msgs:{},vm:{}};
+  const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sc:true,vouches:0,sec:60,au:15,ini:120,tl:true,batch:1,vs1sec:25,im:'',bgt:'none',bgc:'#101018',bgu:'',bgk:'img',bgl:true,bgfit:'cover',bgpos:'center',cv:0,gu:{},was1v1:false};
   let joinT,autoT,busy=false,ackFn=null,ackT=null,seq=0;
   const MAXC=30,solo=()=>g.players.length>0&&new Set(g.players.map(p=>p.o||p.id)).size===1;
   const send=(event,data)=>{if(event==='status')r.status=data.msg;const m=JSON.stringify({event,data});r.clients.forEach(c=>c.readyState===1&&c.send(m))};
   const state=()=>{const{players,...s}=g;send('state',{...s,now:Date.now()})},plist=()=>send('players',{players:g.players});
   const is1v1=()=>g.mode==='lock'&&g.players.length===2;
+  // al ganar se envían también los últimos mensajes de chat de esa persona
+  const win=()=>{const p=g.players[0];send('win',{p,msgs:(r.vm[p.o||p.id]||[]).slice(-5)})};
   // Espera a que la pantalla avise de que terminó la animación (máx. 8 s por seguridad)
   const done=f=>{clearTimeout(ackT);ackFn=()=>{clearTimeout(ackT);ackFn=null;f()};ackT=setTimeout(()=>ackFn&&ackFn(),8000)};
   const auto=s=>{clearTimeout(autoT);s=+s||0;g.autoSec=s;if(!s){g.autoAt=0;return state()}
     const wait=is1v1()?(g.vs1sec||25):s;
-    g.autoAt=Date.now()+wait*1000;g.autoSec=wait;state();autoT=setTimeout(()=>{if(g.players.length>1&&!solo()&&!busy){g.autoAt=0;state();spin()}else auto(s)},wait*1000)};
+    g.autoAt=Date.now()+wait*1000;g.autoSec=wait;state();autoT=setTimeout(()=>{if(g.players.length>1&&!solo()&&!busy){g.autoAt=0;state();spin()}else auto(g.au||s)},wait*1000)};
   const open=s=>{clearTimeout(joinT);auto(0);s=+s||60;g.phase='joining';g.joinEnd=Date.now()+s*1000;g.was1v1=false;state();
     joinT=setTimeout(()=>{g.phase='closed';auto(g.au)},s*1000)};
   function spin(){
     if(busy||!g.players.length)return;
-    if(solo())return send('win',{p:g.players[0]});
+    if(solo())return win();
     busy=true;
     let nKill=g.players.length===2?1:Math.max(1,Math.min(g.batch||1,g.players.length-1));
     if(nKill===1){
       const t=g.players[rnd(g.players.length)],life=t.lives>1;
       send('spin',{id:t.id,life,ids:[t.id],totalBefore:g.players.length,nextMs:2500});
-      const end=()=>{busy=false;if(solo()){send('win',{p:g.players[0]});auto(0)}
+      const end=()=>{busy=false;if(solo()){win();auto(0)}
         else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
         else if(g.autoSec||g.au)auto(is1v1()?(g.vs1sec||25):(g.au||15));
         else state()};
@@ -66,7 +68,7 @@ function room(user){
       g.players=g.players.filter(x=>!idset.has(x.id));
       plist();state();
       done(()=>{busy=false;
-        if(solo()){send('win',{p:g.players[0]});auto(0)}
+        if(solo()){win();auto(0)}
         else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
         else if(g.autoSec||g.au)auto(is1v1()?(g.vs1sec||25):(g.au||15));
         else state();
@@ -83,10 +85,10 @@ function room(user){
     let first=null;for(let i=0;i<n;i++){const card={id:p.id+'#'+(++seq),o:p.id,name:p.name,avatar:p.avatar,lives:1};if(!first)first=card;g.players.push(card)}
     send('toast',{p:first,n,k:had.length?'add':'new'});plist();state()};
   const cfg=(c,soft)=>{if(soft&&r.configured)return;r.configured=true;
-    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;if(c.sc!==undefined)g.sc=!!c.sc;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=c.bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
-    if(c.restart){clearTimeout(joinT);g.joinEnd=0;g.was1v1=false;if(g.mode==='lock')open(g.sec);else{g.phase='open';auto(g.au)}}state()};
-  r.cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,animdone:()=>{ackFn&&ackFn()},
-    reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.was1v1=false;cfg({...g,restart:true});plist()},
+    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;if(c.sc!==undefined)g.sc=!!c.sc;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=c.bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.ini!==undefined)g.ini=Math.max(0,+c.ini||0);if(c.tl!==undefined)g.tl=!!c.tl;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
+    if(c.restart){clearTimeout(joinT);g.joinEnd=0;g.was1v1=false;if(g.mode==='lock'){if(g.tl)open(g.sec);else{g.phase='closed';auto(g.ini||g.au)}}else{g.phase='open';auto(g.ini||g.au)}}state()};
+  r.cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,animdone:()=>{ackFn&&ackFn()},vouch:()=>{g.vouches++;state()},
+    reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.vouches=0;g.was1v1=false;cfg({...g,restart:true});plist()},
     test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
   r.sync=()=>{state();plist()};r.stop=()=>{clearTimeout(joinT);clearTimeout(autoT);clearTimeout(ackT);if(r.media)fs.unlink(path.join(UP,r.media),()=>{})};
   const retry=()=>{if(!r.dead)setTimeout(connect,15000)};
@@ -111,6 +113,12 @@ function room(user){
       if(!['open','joining'].includes(g.phase)){if(!seen)send('toast',{p:{id:uid,name:who,avatar:av,lives:0},n:0,k:'locked'});return info('ignorado: entradas cerradas')}
       if(d.giftPictureUrl)g.gu[nm]=g.gu['*']=d.giftPictureUrl;
       add({id:uid,name:who,avatar:av},gcoins*delta,delta);info('entró ✅ x'+delta)});
+    // chat: guarda los últimos mensajes de cada persona y cuenta cada "vouch"
+    r.conn.on('chat',d=>{
+      const txt=String(d.comment||'').trim().slice(0,200);if(!txt)return;
+      const uid=String(d.userId||d.uniqueId),arr=r.msgs[uid]||(r.msgs[uid]=[]);arr.push(txt);if(arr.length>5)arr.shift();
+      const ks=Object.keys(r.msgs);if(ks.length>3000)delete r.msgs[ks[0]];
+      if(/vouch/i.test(txt)){const va=r.vm[uid]||(r.vm[uid]=[]);va.push(txt);if(va.length>5)va.shift();const kv=Object.keys(r.vm);if(kv.length>3000)delete r.vm[kv[0]];g.vouches++;state();send('vouch',{name:d.nickname||d.uniqueId||'?'})}});
     r.conn.on('rawData',m=>{r.methods[m]=(r.methods[m]||0)+1});
     r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
     r.conn.on('disconnected',()=>{send('status',{ok:false,msg:'Desconectado, reintentando…'});retry()});
@@ -119,7 +127,7 @@ function room(user){
         r.owner=o;if(o)send('owner',o);send('status',{ok:true,msg:'Conectado a @'+user+(o&&o.name?' ('+o.name+')':'')})})
       .catch(e=>{send('status',{ok:false,msg:'No se pudo conectar a @'+user+' ('+String(e.message||e).slice(0,160)+')'+(KEY?'':' · Si es error de firma/403, añade EULER_API_KEY en Render.')});retry()});
   }
-  r.start=connect;auto(15);return r;
+  r.start=connect;auto(g.ini||g.au||15);return r;
 }
 wss.on('connection',(ws,req)=>{
   const user=(new URL(req.url,'http://x').searchParams.get('user')||'').replace('@','').trim().toLowerCase();
