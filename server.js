@@ -152,12 +152,15 @@ function room(user) {
     if (r.dead) return; if (!r.clients.size) return retry();
     
     try {
-      // Importación dinámica limpia compatible con CommonJS y ESM
-      const { TikTokLiveClient } = await import('piratetok-live-js');
+      console.log("Intentando cargar piratetok-live-js...");
+      const pkg = await import('piratetok-live-js');
+      console.log("Paquete cargado con éxito:", pkg);
+      
+      const TikTokLiveClient = pkg.TikTokLiveClient || pkg.default?.TikTokLiveClient || pkg.default;
       r.conn = new TikTokLiveClient(user);
     } catch (err) {
-      console.error('Error al importar piratetok-live-js:', err);
-      send('status', { ok: false, msg: 'Error al cargar el módulo de TikTok' });
+      console.error('ERROR FATAL AL IMPORTAR:', err);
+      send('status', { ok: false, msg: 'Error: ' + err.message });
       return retry();
     }
 
