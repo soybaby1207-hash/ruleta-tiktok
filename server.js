@@ -1,6 +1,9 @@
 process.on('uncaughtException',e=>console.error('uncaught',e&&e.message));process.on('unhandledRejection',e=>console.error('unhandled',e&&e.message||e));
 const express=require('express'),http=require('http'),crypto=require('crypto'),fs=require('fs'),path=require('path'),os=require('os'),{WebSocketServer}=require('ws');
-let Conn;const ready=import('tiktok-live-connector/legacy').then(m=>{Conn=m.WebcastPushConnection});
+
+// Importación adaptada para piratetok-live-js
+const { TikTokLiveClient } = require('piratetok-live-js');
+
 const bestPic=u=>{const l=[u.avatarLarge,u.avatarMedium,u.avatarThumb].flatMap(a=>(a&&a.urlList)||[]);
   return l.find(x=>/100x100/.test(x)&&/\.(webp|jpe?g|png)/.test(x))||l.find(x=>/\.(webp|jpe?g|png)/.test(x)&&!/heic/.test(x))||l.find(x=>!/heic/.test(x))||l[0]||''};
 const KEY=process.env.EULER_API_KEY||undefined,rnd=n=>crypto.randomInt(n);
@@ -34,9 +37,7 @@ function room(user){
   const send=(event,data)=>{if(event==='status')r.status=data.msg;const m=JSON.stringify({event,data});r.clients.forEach(c=>c.readyState===1&&c.send(m))};
   const state=()=>{const{players,...s}=g;send('state',{...s,now:Date.now()})},plist=()=>send('players',{players:g.players});
   const is1v1=()=>g.mode==='lock'&&g.players.length===2;
-  // al ganar se envían también los últimos mensajes de chat de esa persona
   const win=()=>{const p=g.players[0];send('win',{p,msgs:(r.vm[p.o||p.id]||[]).slice(-5)})};
-  // Espera a que la pantalla avise de que terminó la animación (máx. 8 s por seguridad)
   const done=f=>{clearTimeout(ackT);ackFn=()=>{clearTimeout(ackT);ackFn=null;f()};ackT=setTimeout(()=>ackFn&&ackFn(),8000)};
   const auto=s=>{clearTimeout(autoT);s=+s||0;g.autoSec=s;if(!s){g.autoAt=0;return state()}
     const wait=is1v1()?(g.vs1sec||25):s;
@@ -76,31 +77,31 @@ function room(user){
     },1750);
   }
   const add=(p,c,n)=>{if(!['open','joining'].includes(g.phase))return;n=n||1;
-    // más vidas a quien regala más: vidas = valor del regalo / valor del regalo base
     if(g.sc){const base=COINS[String(g.gift||'').toLowerCase()]||0;if(base>0&&c>0)n=Math.max(1,Math.round(c/base))}
     n=Math.min(n,MAXC);g.gifts+=n;g.coins+=c;g.entries++;
-    // cada regalo = una carta distinta (misma persona, aparece n veces)
     const had=g.players.filter(a=>a.o===p.id);
     if(p.avatar)had.forEach(a=>{if(!a.avatar)a.avatar=p.avatar});
     let first=null;for(let i=0;i<n;i++){const card={id:p.id+'#'+(++seq),o:p.id,name:p.name,avatar:p.avatar,lives:1};if(!first)first=card;g.players.push(card)}
     send('toast',{p:first,n,k:had.length?'add':'new'});plist();state()};
   const cfg=(c,soft)=>{if(soft&&r.configured)return;r.configured=true;
-    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;if(c.sc!==undefined)g.sc=!!c.sc;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=c.bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.ini!==undefined)g.ini=Math.max(0,+c.ini||0);if(c.tl!==undefined)g.tl=!!c.tl;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
+    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;if(c.sc!==undefined)g.sc=!!c.sc;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.ini!==undefined)g.ini=Math.max(0,+c.ini||0);if(c.tl!==undefined)g.tl=!!c.tl;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
     if(c.restart){clearTimeout(joinT);g.joinEnd=0;g.was1v1=false;if(g.mode==='lock'){if(g.tl)open(g.sec);else{g.phase='closed';auto(g.ini||g.au)}}else{g.phase='open';auto(g.ini||g.au)}}state()};
   r.cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,animdone:()=>{ackFn&&ackFn()},vouch:()=>{g.vouches++;state()},
     reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.vouches=0;g.was1v1=false;cfg({...g,restart:true});plist()},
     test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
   r.sync=()=>{state();plist()};r.stop=()=>{clearTimeout(joinT);clearTimeout(autoT);clearTimeout(ackT);if(r.media)fs.unlink(path.join(UP,r.media),()=>{})};
   const retry=()=>{if(!r.dead)setTimeout(connect,15000)};
+  
   async function connect(){
-    await ready;if(r.dead)return;if(!r.clients.size)return retry();
-    // enableExtendedGiftInfo: sin esto TikTok no manda el nombre/valor del regalo y el filtro "1 Rose" lo ignoraba
-    r.conn=new Conn(user,{signApiKey:KEY,enableExtendedGiftInfo:true});
-    const orig=r.conn.processProtoMessageFetchResult.bind(r.conn);
-    r.conn.processProtoMessageFetchResult=async fr=>{try{fr.messages.forEach(m=>{const u=m.decodedData&&m.decodedData.data&&m.decodedData.data.user;if(u&&u.idStr){const p=bestPic(u);if(p)r.pics[u.idStr]=p}})}catch(e){}return orig(fr)};
+    if(r.dead)return;if(!r.clients.size)return retry();
+    
+    // Instancia TikTokLiveClient adaptada a piratetok-live-js
+    r.conn=new TikTokLiveClient(user);
+
     const streaks={},norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^rosa$/,'rose');
+    
     r.conn.on('gift',d=>{
-      const gname=d.giftName||(d.extendedGiftInfo&&d.extendedGiftInfo.name)||'',gcoins=d.diamondCount||(d.extendedGiftInfo&&d.extendedGiftInfo.diamond_count)||0;
+      const gname=d.giftName||'',gcoins=d.diamondCount||0;
       const nm=norm(gname),want=norm(g.gift),min=COINS[(g.gift||'').toLowerCase()]||0,who=d.nickname||d.uniqueId||'?',uid=String(d.userId||d.uniqueId);
       const info=m=>{const line=new Date().toISOString().slice(11,19)+' '+who+' '+(gname||'?')+' id='+d.giftId+' tipo='+d.giftType+' fin='+d.repeatEnd+' x'+d.repeatCount+' -> '+m;r.log.push(line);if(r.log.length>30)r.log.shift();console.log('gift',line);send('status',{ok:true,msg:'🎁 '+(gname||'?')+' de '+who+' → '+m})};
       const isRose=Number(d.giftId)===5655;
@@ -109,34 +110,36 @@ function room(user){
       const seen=stream&&st&&now-st.t<20000?st.n:0,delta=stream?total-seen:total;
       if(stream){if(d.repeatEnd)delete streaks[key];else streaks[key]={n:total,t:now}}
       if(delta<=0)return info('combo en curso');
-      const av=r.pics[String(d.userId)]||d.profilePictureUrl||(d.userDetails&&d.userDetails.profilePictureUrls)||'';
+      const av=d.profilePictureUrl||'';
       if(!['open','joining'].includes(g.phase)){if(!seen)send('toast',{p:{id:uid,name:who,avatar:av,lives:0},n:0,k:'locked'});return info('ignorado: entradas cerradas')}
       if(d.giftPictureUrl)g.gu[nm]=g.gu['*']=d.giftPictureUrl;
       add({id:uid,name:who,avatar:av},gcoins*delta,delta);info('entró ✅ x'+delta)});
-    // chat: guarda los últimos mensajes de cada persona y cuenta cada "vouch"
+
     r.conn.on('chat',d=>{
       const txt=String(d.comment||'').trim().slice(0,200);if(!txt)return;
       const uid=String(d.userId||d.uniqueId),arr=r.msgs[uid]||(r.msgs[uid]=[]);arr.push(txt);if(arr.length>5)arr.shift();
       const ks=Object.keys(r.msgs);if(ks.length>3000)delete r.msgs[ks[0]];
       if(/vouch/i.test(txt)){const va=r.vm[uid]||(r.vm[uid]=[]);va.push(txt);if(va.length>5)va.shift();const kv=Object.keys(r.vm);if(kv.length>3000)delete r.vm[kv[0]];g.vouches++;state();send('vouch',{name:d.nickname||d.uniqueId||'?'})}});
-    r.conn.on('rawData',m=>{r.methods[m]=(r.methods[m]||0)+1});
+
     r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
-    r.conn.on('disconnected',()=>{send('status',{ok:false,msg:'Desconectado, reintentando…'});retry()});
-    r.conn.on('streamEnd',()=>send('status',{ok:false,msg:'El live terminó'}));
-    r.conn.connect().then(st=>{let o=null;try{const ow=st&&st.roomInfo&&st.roomInfo.owner;if(ow){const al=ow.avatar_thumb||ow.avatarThumb||ow.avatar_large||ow.avatarLarge,ul=al&&(al.url_list||al.urlList);o={name:ow.nickname||'',avatar:(ul&&ul[0])||''}}}catch(e){}
-        r.owner=o;if(o)send('owner',o);send('status',{ok:true,msg:'Conectado a @'+user+(o&&o.name?' ('+o.name+')':'')})})
-      .catch(e=>{send('status',{ok:false,msg:'No se pudo conectar a @'+user+' ('+String(e.message||e).slice(0,160)+')'+(KEY?'':' · Si es error de firma/403, añade EULER_API_KEY en Render.')});retry()});
+    r.conn.on('disconnected',()=>send('status',{ok:false,msg:'Desconectado, reintentando…'}));
+    
+    r.conn.connect().then(() => {
+        send('status',{ok:true,msg:'Conectado a @'+user});
+    }).catch(e=>{
+        send('status',{ok:false,msg:'No se pudo conectar a @'+user+' ('+String(e.message||e).slice(0,160)+')'});
+        retry();
+    });
   }
   r.start=connect;auto(g.ini||g.au||15);return r;
 }
 wss.on('connection',(ws,req)=>{
   const user=(new URL(req.url,'http://x').searchParams.get('user')||'').replace('@','').trim().toLowerCase();
   if(!user)return ws.close();
-  const fresh=!rooms[user],r=room(user);r.clients.add(ws);if(fresh)r.start();else if(r.conn&&r.conn.isConnected)ws.send(JSON.stringify({event:'status',data:{ok:true,msg:'Conectado a @'+user}}));
+  const fresh=!rooms[user],r=room(user);r.clients.add(ws);if(fresh)r.start();else if(r.conn)ws.send(JSON.stringify({event:'status',data:{ok:true,msg:'Conectado a @'+user}}));
   if(r.owner)ws.send(JSON.stringify({event:'owner',data:r.owner}));
   r.sync();
   ws.on('message',raw=>{try{const m=JSON.parse(raw),h=r.cmd[m.cmd];h&&h(m)}catch(e){console.error('cmd',e.message)}});
   ws.on('close',()=>{r.clients.delete(ws);if(!r.clients.size)setTimeout(()=>{if(!r.clients.size){r.dead=true;r.stop();try{r.conn.disconnect()}catch(e){}delete rooms[user]}},30000)});
 });
-console.log(KEY?'Clave EULER_API_KEY detectada.':'AVISO: sin EULER_API_KEY. TikTok puede rechazar o limitar la conexion (ver LEEME).');
 srv.listen(process.env.PORT||3000,()=>console.log('Abre: http://localhost:'+(process.env.PORT||3000)+'/ruleta.html'));
