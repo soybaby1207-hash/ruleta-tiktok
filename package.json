@@ -1,6 +1,7 @@
 {
   "name": "ruleta-tiktok",
   "version": "3.1.0",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
