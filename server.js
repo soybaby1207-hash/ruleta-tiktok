@@ -152,15 +152,12 @@ function room(user) {
     if (r.dead) return; if (!r.clients.size) return retry();
     
     try {
-      console.log("Intentando cargar piratetok-live-js...");
       const pkg = await import('piratetok-live-js');
-      console.log("Paquete cargado con éxito:", pkg);
-      
       const TikTokLiveClient = pkg.TikTokLiveClient || pkg.default?.TikTokLiveClient || pkg.default;
       r.conn = new TikTokLiveClient(user);
     } catch (err) {
-      console.error('ERROR FATAL AL IMPORTAR:', err);
-      send('status', { ok: false, msg: 'Error: ' + err.message });
+      console.error('Error al importar:', err);
+      send('status', { ok: false, msg: 'Error al cargar el módulo de TikTok' });
       return retry();
     }
 
@@ -168,22 +165,33 @@ function room(user) {
 
     r.conn.on('gift', d => {
       const gname = d.giftName || '', gcoins = d.diamondCount || 0;
-      const nm = norm(gname), want = norm(g.gift), min = COINS[(g.gift || '').toLowerCase()] || 0, who = d.nickname || d.uniqueId || '?', uid = String(d.userId || d.uniqueId);
+      const nm = norm(gname), want = norm(g.gift), min = COINS[(g.gift || '').toLowerCase()] || 0;
+      
+      // Extracción limpia del nombre y de la foto de perfil del donante
+      const who = d.nickname || d.uniqueId || 'Anónimo';
+      const uid = String(d.userId || d.uniqueId || 't' + crypto.randomUUID());
+      const av = d.profilePictureUrl || d.avatarLarger || d.avatarMedium || d.avatarThumb || '';
+
       const info = m => {
         const line = new Date().toISOString().slice(11, 19) + ' ' + who + ' ' + (gname || '?') + ' id=' + d.giftId + ' tipo=' + d.giftType + ' fin=' + d.repeatEnd + ' x' + d.repeatCount + ' -> ' + m;
         r.log.push(line); if (r.log.length > 30) r.log.shift(); console.log('gift', line);
         send('status', { ok: true, msg: '🎁 ' + (gname || '?') + ' de ' + who + ' → ' + m });
       };
+
       const isRose = Number(d.giftId) === 5655;
       if (want && nm !== want && !(want === 'rose' && isRose) && !(g.up && min && gcoins >= min)) return info('ignorado: tu regalo configurado es "' + g.gift + '"');
+      
       const key = uid + ':' + (d.giftId || nm), total = d.repeatCount || 1, now = Date.now(), st = streaks[key], stream = d.giftType === 1;
       const seen = stream && st && now - st.t < 20000 ? st.n : 0, delta = stream ? total - seen : total;
       if (stream) { if (d.repeatEnd) delete streaks[key]; else streaks[key] = { n: total, t: now }; }
       if (delta <= 0) return info('combo en curso');
-      const av = d.profilePictureUrl || '';
+
       if (!['open', 'joining'].includes(g.phase)) { if (!seen) send('toast', { p: { id: uid, name: who, avatar: av, lives: 0 }, n: 0, k: 'locked' }); return info('ignorado: entradas cerradas'); }
       if (d.giftPictureUrl) g.gu[nm] = g.gu['*'] = d.giftPictureUrl;
-      add({ id: uid, name: who, avatar: av }, gcoins * delta, delta); info('entró ✅ x' + delta);
+
+      // Añadimos el usuario con su nombre y avatar reales a la ruleta
+      add({ id: uid, name: who, avatar: av }, gcoins * delta, delta);
+      info('entró ✅ x' + delta);
     });
 
     r.conn.on('chat', d => {
@@ -227,4 +235,4 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-srv.listen(process.env.PORT || 3000, () => console.log('Abre: http://localhost:' + (process.env.PORT || 3000) + '/ruleta.html'));
+srv.listen(process.env.PORT || 3000,()=>console.log('Abre: http://localhost:'+(process.env.PORT||3000)+'/ruleta.html'));
