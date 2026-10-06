@@ -28,30 +28,33 @@ const srv=http.createServer(app),wss=new WebSocketServer({server:srv}),rooms={};
 function room(user){
   if(rooms[user])return rooms[user];
   const r=rooms[user]={clients:new Set(),conn:null,dead:false,configured:false,methods:{},log:[],status:'',pics:{}};
-  const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sec:60,au:15,batch:1,vs1sec:25,im:'',bgt:'none',bgc:'#101018',bgu:'',bgk:'img',bgl:true,bgfit:'cover',bgpos:'center',cv:0,gu:{},was1v1:false};
-  let joinT,autoT,busy=false;
+  const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gifts:0,coins:0,entries:0,mode:'free',gift:'Rose',up:false,sc:true,sec:60,au:15,batch:1,vs1sec:25,im:'',bgt:'none',bgc:'#101018',bgu:'',bgk:'img',bgl:true,bgfit:'cover',bgpos:'center',cv:0,gu:{},was1v1:false};
+  let joinT,autoT,busy=false,ackFn=null,ackT=null,seq=0;
+  const MAXC=30,solo=()=>g.players.length>0&&new Set(g.players.map(p=>p.o||p.id)).size===1;
   const send=(event,data)=>{if(event==='status')r.status=data.msg;const m=JSON.stringify({event,data});r.clients.forEach(c=>c.readyState===1&&c.send(m))};
   const state=()=>{const{players,...s}=g;send('state',{...s,now:Date.now()})},plist=()=>send('players',{players:g.players});
   const is1v1=()=>g.mode==='lock'&&g.players.length===2;
+  // Espera a que la pantalla avise de que terminó la animación (máx. 8 s por seguridad)
+  const done=f=>{clearTimeout(ackT);ackFn=()=>{clearTimeout(ackT);ackFn=null;f()};ackT=setTimeout(()=>ackFn&&ackFn(),8000)};
   const auto=s=>{clearTimeout(autoT);s=+s||0;g.autoSec=s;if(!s){g.autoAt=0;return state()}
     const wait=is1v1()?(g.vs1sec||25):s;
-    g.autoAt=Date.now()+wait*1000;g.autoSec=wait;state();autoT=setTimeout(()=>{if(g.players.length>1&&!busy){g.autoAt=0;spin()}else auto(s)},wait*1000)};
+    g.autoAt=Date.now()+wait*1000;g.autoSec=wait;state();autoT=setTimeout(()=>{if(g.players.length>1&&!solo()&&!busy){g.autoAt=0;state();spin()}else auto(s)},wait*1000)};
   const open=s=>{clearTimeout(joinT);auto(0);s=+s||60;g.phase='joining';g.joinEnd=Date.now()+s*1000;g.was1v1=false;state();
     joinT=setTimeout(()=>{g.phase='closed';auto(g.au)},s*1000)};
   function spin(){
     if(busy||!g.players.length)return;
-    if(g.players.length===1)return send('win',{p:g.players[0]});
+    if(solo())return send('win',{p:g.players[0]});
     busy=true;
     let nKill=g.players.length===2?1:Math.max(1,Math.min(g.batch||1,g.players.length-1));
     if(nKill===1){
       const t=g.players[rnd(g.players.length)],life=t.lives>1;
       send('spin',{id:t.id,life,ids:[t.id],totalBefore:g.players.length,nextMs:2500});
-      const end=()=>{busy=false;if(g.players.length===1){send('win',{p:g.players[0]});auto(0)}
+      const end=()=>{busy=false;if(solo()){send('win',{p:g.players[0]});auto(0)}
         else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
         else if(g.autoSec||g.au)auto(is1v1()?(g.vs1sec||25):(g.au||15));
         else state()};
-      if(life)setTimeout(()=>{t.lives--;plist();setTimeout(end,1100)},1400);
-      else setTimeout(()=>{g.players=g.players.filter(x=>x!==t);plist();state();setTimeout(end,2800)},1750);
+      if(life)setTimeout(()=>{t.lives--;plist();done(end)},1400);
+      else setTimeout(()=>{g.players=g.players.filter(x=>x!==t);plist();state();done(end)},1750);
       return;
     }
     const pool=[...g.players],picked=[];
@@ -62,36 +65,44 @@ function room(user){
       const idset=new Set(ids);
       g.players=g.players.filter(x=>!idset.has(x.id));
       plist();state();
-      setTimeout(()=>{busy=false;
-        if(g.players.length===1){send('win',{p:g.players[0]});auto(0)}
+      done(()=>{busy=false;
+        if(solo()){send('win',{p:g.players[0]});auto(0)}
         else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
         else if(g.autoSec||g.au)auto(is1v1()?(g.vs1sec||25):(g.au||15));
         else state();
-      },2800);
+      });
     },1750);
   }
-  const add=(p,c,n)=>{if(!['open','joining'].includes(g.phase))return;n=n||1;g.gifts+=n;g.coins+=c;g.entries++;
-    const ex=g.players.find(a=>a.id===p.id);
-    if(ex){ex.lives+=n;if(p.avatar&&!ex.avatar)ex.avatar=p.avatar}else{p.lives=n;g.players.push(p)}
-    send('toast',{p:ex||p,n,k:ex?'add':'new'});plist();state()};
+  const add=(p,c,n)=>{if(!['open','joining'].includes(g.phase))return;n=n||1;
+    // más vidas a quien regala más: vidas = valor del regalo / valor del regalo base
+    if(g.sc){const base=COINS[String(g.gift||'').toLowerCase()]||0;if(base>0&&c>0)n=Math.max(1,Math.round(c/base))}
+    n=Math.min(n,MAXC);g.gifts+=n;g.coins+=c;g.entries++;
+    // cada regalo = una carta distinta (misma persona, aparece n veces)
+    const had=g.players.filter(a=>a.o===p.id);
+    if(p.avatar)had.forEach(a=>{if(!a.avatar)a.avatar=p.avatar});
+    let first=null;for(let i=0;i<n;i++){const card={id:p.id+'#'+(++seq),o:p.id,name:p.name,avatar:p.avatar,lives:1};if(!first)first=card;g.players.push(card)}
+    send('toast',{p:first,n,k:had.length?'add':'new'});plist();state()};
   const cfg=(c,soft)=>{if(soft&&r.configured)return;r.configured=true;
-    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=c.bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
+    g.mode=c.mode==='lock'?'lock':'free';g.gift=c.gift===undefined?g.gift:String(c.gift);g.up=!!c.up;if(c.sc!==undefined)g.sc=!!c.sc;g.im=c.im||'';g.sec=+c.sec||60;g.bgt=['none','color','img'].includes(c.bgt)?c.bgt:'none';g.bgc=/^#[0-9a-f]{3,8}$/i.test(c.bgc||'')?c.bgc:'#101018';g.bgu=/^(https?:\/\/|\/media\/)/.test(c.bgu||'')?String(c.bgu).slice(0,600):'';g.bgk=c.bgk==='video'?'video':'img';g.bgl=c.bgl!==false;g.bgfit=['cover','contain','fill'].includes(c.bgfit)?c.bgfit:'cover';g.bgpos=String(c.bgpos||'center').slice(0,40);if(c.au!==undefined)g.au=+c.au||0;if(c.batch!==undefined)g.batch=Math.max(1,+c.batch||1);if(c.vs1sec!==undefined)g.vs1sec=Math.max(5,+c.vs1sec||25);g.cv++;
     if(c.restart){clearTimeout(joinT);g.joinEnd=0;g.was1v1=false;if(g.mode==='lock')open(g.sec);else{g.phase='open';auto(g.au)}}state()};
-  r.cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,
+  r.cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>auto(m.sec),spin,animdone:()=>{ackFn&&ackFn()},
     reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.was1v1=false;cfg({...g,restart:true});plist()},
     test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
-  r.sync=()=>{state();plist()};r.stop=()=>{clearTimeout(joinT);clearTimeout(autoT);if(r.media)fs.unlink(path.join(UP,r.media),()=>{})};
+  r.sync=()=>{state();plist()};r.stop=()=>{clearTimeout(joinT);clearTimeout(autoT);clearTimeout(ackT);if(r.media)fs.unlink(path.join(UP,r.media),()=>{})};
   const retry=()=>{if(!r.dead)setTimeout(connect,15000)};
   async function connect(){
     await ready;if(r.dead)return;if(!r.clients.size)return retry();
-    r.conn=new Conn(user,{signApiKey:KEY});
+    // enableExtendedGiftInfo: sin esto TikTok no manda el nombre/valor del regalo y el filtro "1 Rose" lo ignoraba
+    r.conn=new Conn(user,{signApiKey:KEY,enableExtendedGiftInfo:true});
     const orig=r.conn.processProtoMessageFetchResult.bind(r.conn);
     r.conn.processProtoMessageFetchResult=async fr=>{try{fr.messages.forEach(m=>{const u=m.decodedData&&m.decodedData.data&&m.decodedData.data.user;if(u&&u.idStr){const p=bestPic(u);if(p)r.pics[u.idStr]=p}})}catch(e){}return orig(fr)};
     const streaks={},norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^rosa$/,'rose');
     r.conn.on('gift',d=>{
-      const nm=norm(d.giftName),want=norm(g.gift),min=COINS[(g.gift||'').toLowerCase()]||0,who=d.nickname||d.uniqueId||'?',uid=String(d.userId||d.uniqueId);
-      const info=m=>{const line=new Date().toISOString().slice(11,19)+' '+who+' '+(d.giftName||'?')+' id='+d.giftId+' tipo='+d.giftType+' fin='+d.repeatEnd+' x'+d.repeatCount+' -> '+m;r.log.push(line);if(r.log.length>30)r.log.shift();console.log('gift',line);send('status',{ok:true,msg:'🎁 '+(d.giftName||'?')+' de '+who+' → '+m})};
-      if(want&&nm!==want&&!(want==='rose'&&d.giftId===5655)&&!(g.up&&min&&(d.diamondCount||0)>=min))return info('ignorado: tu regalo configurado es "'+g.gift+'"');
+      const gname=d.giftName||(d.extendedGiftInfo&&d.extendedGiftInfo.name)||'',gcoins=d.diamondCount||(d.extendedGiftInfo&&d.extendedGiftInfo.diamond_count)||0;
+      const nm=norm(gname),want=norm(g.gift),min=COINS[(g.gift||'').toLowerCase()]||0,who=d.nickname||d.uniqueId||'?',uid=String(d.userId||d.uniqueId);
+      const info=m=>{const line=new Date().toISOString().slice(11,19)+' '+who+' '+(gname||'?')+' id='+d.giftId+' tipo='+d.giftType+' fin='+d.repeatEnd+' x'+d.repeatCount+' -> '+m;r.log.push(line);if(r.log.length>30)r.log.shift();console.log('gift',line);send('status',{ok:true,msg:'🎁 '+(gname||'?')+' de '+who+' → '+m})};
+      const isRose=Number(d.giftId)===5655;
+      if(want&&nm!==want&&!(want==='rose'&&isRose)&&!(g.up&&min&&gcoins>=min))return info('ignorado: tu regalo configurado es "'+g.gift+'"');
       const key=uid+':'+(d.giftId||nm),total=d.repeatCount||1,now=Date.now(),st=streaks[key],stream=d.giftType===1;
       const seen=stream&&st&&now-st.t<20000?st.n:0,delta=stream?total-seen:total;
       if(stream){if(d.repeatEnd)delete streaks[key];else streaks[key]={n:total,t:now}}
@@ -99,7 +110,7 @@ function room(user){
       const av=r.pics[String(d.userId)]||d.profilePictureUrl||(d.userDetails&&d.userDetails.profilePictureUrls)||'';
       if(!['open','joining'].includes(g.phase)){if(!seen)send('toast',{p:{id:uid,name:who,avatar:av,lives:0},n:0,k:'locked'});return info('ignorado: entradas cerradas')}
       if(d.giftPictureUrl)g.gu[nm]=g.gu['*']=d.giftPictureUrl;
-      add({id:uid,name:who,avatar:av},(d.diamondCount||0)*delta,delta);info('entró ✅ x'+delta)});
+      add({id:uid,name:who,avatar:av},gcoins*delta,delta);info('entró ✅ x'+delta)});
     r.conn.on('rawData',m=>{r.methods[m]=(r.methods[m]||0)+1});
     r.conn.on('error',e=>console.error('conn error',e&&e.message||e));
     r.conn.on('disconnected',()=>{send('status',{ok:false,msg:'Desconectado, reintentando…'});retry()});
