@@ -201,7 +201,7 @@ html.o,html.o body{background:transparent!important}
 </style>
 <div id=hdr><div class=brand><span class=logo></span><b>Live Tools</b></div>
 <nav id=tabs><button class="tab on" data-t=roulette onclick="tab('roulette')">Elimination Roulette</button><button class=tab data-t=gifters onclick="tab('gifters')">Top donadores<i>Coming soon</i></button><button class=tab data-t=wheel onclick="tab('wheel')">Sorteos<i>Coming soon</i></button><button class=tab data-t=battle onclick="tab('battle')">Batallas<i>Coming soon</i></button><button class=tab data-t=goals onclick="tab('goals')">Metas<i>Coming soon</i></button><button class=tab data-t=alerts onclick="tab('alerts')">Alertas<i>Coming soon</i></button></nav>
-<div id=top><div class=row><span id=me>?</span><input id=tu placeholder="@tu_usuario de TikTok" onchange=preview() onkeydown="if(event.key==='Enter'){preview();conectar()}"><button onclick="preview();conectar()">Conectar</button></div><small id=cs>Sin conectar</small></div>
+<div id=top><div class=row><span id=me>?</span><input id=tu placeholder="@soybaby1209" onchange=preview() onkeydown="if(event.key==='Enter'){preview();conectar()}"><button onclick="preview();conectar()">Conectar</button></div><small id=cs>Sin conectar</small></div>
 </div>
 <div id=app>
 <div id=pv><div class=pvh><b>Vista previa</b><span>Así se verá en tu directo</span><i class=sp></i><button id=bigb onclick=big()>Ampliar</button><button onclick=fs()>Pantalla completa</button></div><div id=sw><div id=s><div id=w>
@@ -327,7 +327,6 @@ function anim(d){if(spinning)return;
   const targets=ids.map(id=>players.find(p=>p.id===id)).filter(Boolean);
   if(!targets.length)return;
   spinning=true;
-  // solo cartas de jugadores reales (nunca huecos vacíos)
   const cards=players.map(p=>$('c'+p.id)).filter(Boolean);
   const clearHL=()=>cards.forEach(e=>{e.classList.remove('hl','pick')});
   const fin=()=>{clearHL();spinning=false;if(pend){players=pend;pend=null}render();ui();if(srv)tx({cmd:'animdone'});
@@ -340,7 +339,6 @@ function anim(d){if(spinning)return;
     setTimeout(fin,1100);return;
   }
   if(!cards.length){fin();return}
-  // ruleta con deceleración: solo salta entre cartas existentes
   const steps=Math.min(28,Math.max(12,cards.length*3));
   let step=0,last=-1;
   const tick=()=>{
@@ -349,11 +347,9 @@ function anim(d){if(spinning)return;
     last=i;cards[i].classList.add('hl');
     step++;
     if(step<steps){
-      // cada vez más lento
       const delay=40+step*step*1.8;
       setTimeout(tick,delay);
     }else{
-      // fijar en los elegidos
       clearHL();
       targets.forEach(t=>{const e=$('c'+t.id);if(e){e.classList.add('pick');setTimeout(()=>e.classList.add('dead'),400)}});
       setTimeout(()=>{
@@ -376,9 +372,7 @@ function toast(p,n,k){const t=$('toast');t.innerHTML='';t.className=k==='locked'
  t.style.display='flex';t.style.animation='none';void t.offsetWidth;t.style.animation='';clearTimeout(toT);toT=setTimeout(()=>t.style.display='none',2600)}
 function render(){const g=$('g'),h=$('gh'),n=Math.max(1,players.length);h.style.flex='1';h.style.height='';
  const AW=h.clientWidth||300,AH=h.clientHeight||400,W=Math.round(AW*.98),H=Math.round(Math.min(AH,W)),pd=Math.max(n>40?2:4,Math.round(W*.03));h.style.flex='none';h.style.height=H+'px';
- // poco padding para que las cartas lleguen casi a las esquinas y bordes
  const maxByCount=n===1?Math.min(W,H)*.88:n<=4?Math.min(W,H)*.46:n<=6?Math.min(W,H)*.36:n<=9?Math.min(W,H)*.28:n<=16?Math.min(W,H)*.22:Math.min(W,H)*.16;
- // con mucha gente las cartas se hacen cada vez más pequeñas (sin mínimo) y se ocultan los nombres
  const fitFor=nh=>{let b=null;for(let c=1;c<=n;c++){const r=Math.ceil(n/c),gp=Math.max(1,Math.min(8,Math.min(W/c,H/r)/14)),sz=Math.min((W-2*pd-(c-1)*gp)/c,(H-2*pd-(r-1)*gp-r*nh)/r,maxByCount);if(!b||sz>b.sz)b={c,r,gp,sz}}return b};
  let nameH=Math.max(12,Math.round(maxByCount*.2)),best=fitFor(nameH);
  if(best.sz<34){nameH=0;best=fitFor(0)}
@@ -438,7 +432,6 @@ function applyBg(d){
   }else if(t==='none'){
     g.style.background='';
   }
-  // si ya hay fondo aplicado y no nos piden quitarlo, no lo tocamos
 }
 async function subirFondo(inp){const f=inp.files&&inp.files[0],m=$('bgmsg');if(!f)return;const kind=f.type.startsWith('video')?'video':'img';
  if($('bgfname'))$('bgfname').textContent=f.name;
@@ -472,9 +465,7 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
  const open=s=>{clearTimeout(joinT);auto(0);s=+s||60;g.phase='joining';g.joinEnd=Date.now()+s*1000;g.was1v1=false;state();joinT=setTimeout(()=>{g.phase='closed';auto(g.au)},s*1000)};
  function spin(){if(busy||!g.players.length)return;if(solo())return send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['vouch','vouch ✅']:[]});
   busy=true;
-  // 1vs1: solo uno, siempre
   let nKill=g.players.length===2?1:Math.max(1,Math.min(g.batch||1,g.players.length-1));
-  // priorizar quitar vidas si el elegido tiene vidas extra y batch=1
   if(nKill===1){
     const t=g.players[rnd(g.players.length)],life=t.lives>1;
     send('spin',{id:t.id,life,ids:[t.id],totalBefore:g.players.length,nextMs:2500});
@@ -486,7 +477,6 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
     else setTimeout(()=>{g.players=g.players.filter(x=>x!==t);plist();state();setTimeout(()=>done(end),2800)},1750);
     return;
   }
-  // batch: elegir nKill jugadores al azar
   const pool=[...g.players],picked=[];
   while(picked.length<nKill&&pool.length>1){const i=rnd(pool.length);picked.push(pool.splice(i,1)[0])}
   const ids=picked.map(p=>p.id);
@@ -513,16 +503,14 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
   vouch:()=>{g.vouches++;state()},
   test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
  return{cmd,start:()=>auto(g.ini||g.au||15),stop:()=>{on=false;clearTimeout(joinT);clearTimeout(autoT)}}})();
-function enlace(){const q=new URLSearchParams({overlay:1,ws:$('ws').value,mode:$('mode').value,user:$('tu').value.trim().replace('@',''),bgt:$('bgt').value,bgc:$('bgc').value,bgu:$('bgu').value.trim(),bgk:$('bgk').value,bgl:$('bgl').checked?1:0,bgfit:$('bgfit').value,bgpos:$('bgpos').value,img:$('im').value.trim(),gift:getGift(),up:$('up').checked?1:0,sc:$('sc').checked?1:0,tl:$('tl').checked?1:0,join:$('sec').value,auto:$('au').value,ini:$('ini').value});
- $('lk').textContent=location.href.split('?')[0]+'?'+q}
+function enlace(){const q=new URLSearchParams({overlay:1,ws:$('ws').value,mode:$('mode').value,user:$('tu').value.trim().replace('@',''),bgt:$('bgt').value,bgc:$('bgc').value,bgu:$('bgu').value.trim(),bgk:$('bgk').value,bgl:$('bgl').checked?1:0,bgfit:$('bgfit').value,bgpos:$('bgpos').value,img:$('im').value.trim(),gift:getGift(),up:$('up').checked?1:0,sc:$('sc').checked?1:0,tl:$('tl').checked?1:0,join:$('sec').value,auto:$('au').value,ini:$('ini').value});$('lk').textContent=location.href.split('?')[0]+'?'+q}
 addEventListener('resize',()=>render());setInterval(clock,300);render();ui();
 $('cs').textContent='Modo prueba local (sin servidor)';try{const u=localStorage.getItem('ruleta_user');if(u&&!Q.get('overlay')){$('tu').value=u;preview()}}catch(e){}
 L.start();
-if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');tx({...cfgObj(true),soft:true});conectar(wsUrl())}
+if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')\vert{}\vert{}'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')\vert{}\vert{}'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')\vert{}\vert{}'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')\vert{}\vert{}'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
 
 <script>
-/* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
 (function(){
  var PASS='wbabyjeje';
  if(new URLSearchParams(location.search).get('overlay'))return;
