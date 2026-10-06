@@ -1,1 +1,12 @@
-{"name":"ruleta-tiktok","version":"3.1.0","scripts":{"start":"node server.js"},"engines":{"node":">=18"}, "dependencies":{"express":"^4.19.2","ws":"^8.18.0","tiktok-live-connector":"2.4.0"}}
+{
+  "name": "ruleta-tiktok",
+  "version": "3.1.0",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0",
+    "piratetok-live-js": "^0.1.5"
+  }
+}
