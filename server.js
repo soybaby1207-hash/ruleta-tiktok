@@ -3,8 +3,23 @@ process.on('unhandledRejection', e => console.error('unhandled', e && e.message 
 
 const express = require('express'), http = require('http'), crypto = require('crypto'), fs = require('fs'), path = require('path'), os = require('os'), { WebSocketServer } = require('ws');
 
-const bestPic = u => { const l = [u.avatarLarge, u.avatarMedium, u.avatarThumb].flatMap(a => (a && a.urlList) || []);
-  return l.find(x => /100x100/.test(x) && /\.(webp|jpe?g|png)/.test(x)) || l.find(x => /\.(webp|jpe?g|png)/.test(x) && !/heic/.test(x)) || l.find(x => !/heic/.test(x)) || l[0] || '' };
+// ---- Datos de la persona: piratetok-live-js los entrega dentro de data.user ----
+const urls = a => !a ? [] : [].concat(a.urlList || a.url_list || a.urls || (typeof a === 'string' ? [a] : []));
+const bestPic = u => {
+  if (!u) return '';
+  const l = [u.avatarLarge, u.avatarMedium, u.avatarThumb, u.avatar_large, u.avatar_medium, u.avatar_thumb, u.profilePicture, u.profilePictureUrl].flatMap(urls).filter(Boolean);
+  return l.find(x => /100x100/.test(x) && /\.(webp|jpe?g|png)/.test(x)) || l.find(x => /\.(webp|jpe?g|png)/.test(x) && !/heic/.test(x)) || l.find(x => !/heic/.test(x)) || l[0] || '';
+};
+const idOf = (U, d) => {
+  for (const c of [U && U.idStr, U && U.id, U && U.userId, d && d.userId, U && U.uniqueId, d && d.uniqueId]) {
+    const s = c == null ? '' : String(c);
+    if (s && !/object/i.test(s)) return s;
+  }
+  return 't' + crypto.randomUUID();
+};
+const nameOf = (U, d) => (U && (U.nickname || U.uniqueId)) || (d && (d.nickname || d.uniqueId)) || 'Anónimo';
+const dump = o => { try { return JSON.stringify(o, (k, v) => typeof v === 'bigint' ? v.toString() : v).slice(0, 2500); } catch (e) { return 'no se pudo serializar'; } };
+
 const KEY = process.env.EULER_API_KEY || undefined, rnd = n => crypto.randomInt(n);
 const COINS = { rose: 1, tiktok: 1, 'ice cream cone': 1, 'heart me': 1, 'finger heart': 5, perfume: 20, doughnut: 30, cap: 99, 'paper crane': 99, 'little crown': 99, 'hat and mustache': 99, confetti: 100, 'hand hearts': 100, sunglasses: 199, 'gold boxing gloves': 299, corgi: 299, 'money gun': 500, swan: 699, train: 899, galaxy: 1000, fireworks: 1088, 'whale diving': 2150, 'leon the kitten': 4888, 'drama queen': 5000, 'sports car': 7000, lion: 29999, 'tiktok universe': 44999 };
 const NM = ['maria', 'carlos', 'lucia', 'juan', 'sofia', 'diego', 'ana', 'pablo', 'laura', 'javi', 'carmen', 'alex', 'paula', 'david', 'marta', 'sergio', 'elena', 'raul', 'nuria', 'ivan'], SF = ['_xx', '.oficial', '88', '_17', '_tv', '.mx', '_rd', '23', '_vip', '_09'];
@@ -17,7 +32,7 @@ app.use(express.static('public'));
 app.get('/debug', (q, res) => {
     const u = String(q.query.user || '').replace('@', '').trim().toLowerCase(), r = rooms[u];
     if (!r) return res.json({ error: 'No hay sala para ' + u + '. Abre la pagina, escribe el usuario y pulsa Conectar primero.', salas: Object.keys(rooms) });
-    res.json({ usuario: u, conectadoATikTok: !!(r.conn && r.conn.isConnected), claveEulerConfigurada: !!KEY, ultimoEstado: r.status, pantallasConectadas: r.clients.size, mensajesRecibidosDeTikTok: r.methods, registroDeRegalos: r.log });
+    res.json({ usuario: u, conectadoATikTok: !!(r.conn && r.conn.isConnected), ultimoEstado: r.status, pantallasConectadas: r.clients.size, registroDeRegalos: r.log, ultimoRegaloCrudo: r.rawGift || null, ultimoChatCrudo: r.rawChat || null });
 });
 
 const UP = path.join(os.tmpdir(), 'ruleta-media');
@@ -150,10 +165,12 @@ function room(user) {
 
   async function connect() {
     if (r.dead) return; if (!r.clients.size) return retry();
-    
+
+    let ET = {};
     try {
       const pkg = await import('piratetok-live-js');
       const TikTokLiveClient = pkg.TikTokLiveClient || pkg.default?.TikTokLiveClient || pkg.default;
+      ET = pkg.EventType || (pkg.default && pkg.default.EventType) || {};
       r.conn = new TikTokLiveClient(user);
     } catch (err) {
       console.error('Error al importar:', err);
@@ -163,45 +180,45 @@ function room(user) {
 
     const streaks = {}, norm = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/^rosa$/, 'rose');
 
-    r.conn.on('gift', d => {
-      const gname = d.giftName || '', gcoins = d.diamondCount || 0;
+    r.conn.on(ET.gift || 'gift', d => {
+      r.rawGift = dump(d); // para /debug: así se ve exactamente qué manda TikTok
+      const U = d.user || {}, G = d.gift || d.giftDetails || {};
+      const gname = G.name || G.giftName || d.giftName || '', gcoins = G.diamondCount ?? G.diamond_count ?? d.diamondCount ?? 0;
       const nm = norm(gname), want = norm(g.gift), min = COINS[(g.gift || '').toLowerCase()] || 0;
-      
-      // Extracción limpia del nombre y de la foto de perfil del donante
-      const who = d.nickname || d.uniqueId || 'Anónimo';
-      const uid = String(d.userId || d.uniqueId || 't' + crypto.randomUUID());
-      const av = d.profilePictureUrl || d.avatarLarger || d.avatarMedium || d.avatarThumb || '';
+
+      const who = nameOf(U, d), uid = idOf(U, d), av = bestPic(U) || d.profilePictureUrl || '';
+      const gid = d.giftId ?? G.id, gtype = G.type ?? d.giftType;
 
       const info = m => {
-        const line = new Date().toISOString().slice(11, 19) + ' ' + who + ' ' + (gname || '?') + ' id=' + d.giftId + ' tipo=' + d.giftType + ' fin=' + d.repeatEnd + ' x' + d.repeatCount + ' -> ' + m;
+        const line = new Date().toISOString().slice(11, 19) + ' ' + who + ' ' + (gname || '?') + ' id=' + gid + ' tipo=' + gtype + ' fin=' + d.repeatEnd + ' x' + d.repeatCount + ' foto=' + (av ? 'sí' : 'NO') + ' -> ' + m;
         r.log.push(line); if (r.log.length > 30) r.log.shift(); console.log('gift', line);
         send('status', { ok: true, msg: '🎁 ' + (gname || '?') + ' de ' + who + ' → ' + m });
       };
 
-      const isRose = Number(d.giftId) === 5655;
+      const isRose = Number(gid) === 5655;
       if (want && nm !== want && !(want === 'rose' && isRose) && !(g.up && min && gcoins >= min)) return info('ignorado: tu regalo configurado es "' + g.gift + '"');
-      
-      const key = uid + ':' + (d.giftId || nm), total = d.repeatCount || 1, now = Date.now(), st = streaks[key], stream = d.giftType === 1;
+
+      const key = uid + ':' + (gid || nm), total = d.repeatCount || 1, now = Date.now(), st = streaks[key], stream = gtype === 1;
       const seen = stream && st && now - st.t < 20000 ? st.n : 0, delta = stream ? total - seen : total;
       if (stream) { if (d.repeatEnd) delete streaks[key]; else streaks[key] = { n: total, t: now }; }
       if (delta <= 0) return info('combo en curso');
 
       if (!['open', 'joining'].includes(g.phase)) { if (!seen) send('toast', { p: { id: uid, name: who, avatar: av, lives: 0 }, n: 0, k: 'locked' }); return info('ignorado: entradas cerradas'); }
-      if (d.giftPictureUrl) g.gu[nm] = g.gu['*'] = d.giftPictureUrl;
+      const gimg = urls(G.image || G.icon)[0]; if (gimg) g.gu[nm] = g.gu['*'] = gimg;
 
-      // Añadimos el usuario con su nombre y avatar reales a la ruleta
       add({ id: uid, name: who, avatar: av }, gcoins * delta, delta);
       info('entró ✅ x' + delta);
     });
 
-    r.conn.on('chat', d => {
-      const txt = String(d.comment || '').trim().slice(0, 200); if (!txt) return;
-      const uid = String(d.userId || d.uniqueId), arr = r.msgs[uid] || (r.msgs[uid] = []); arr.push(txt); if (arr.length > 5) arr.shift();
+    r.conn.on(ET.chat || 'chat', d => {
+      r.rawChat = dump(d);
+      const txt = String(d.content ?? d.comment ?? '').trim().slice(0, 200); if (!txt) return;
+      const U = d.user || {}, uid = idOf(U, d), arr = r.msgs[uid] || (r.msgs[uid] = []); arr.push(txt); if (arr.length > 5) arr.shift();
       const ks = Object.keys(r.msgs); if (ks.length > 3000) delete r.msgs[ks[0]];
       if (/vouch/i.test(txt)) {
         const va = r.vm[uid] || (r.vm[uid] = []); va.push(txt); if (va.length > 5) va.shift();
         const kv = Object.keys(r.vm); if (kv.length > 3000) delete r.vm[kv[0]];
-        g.vouches++; state(); send('vouch', { name: d.nickname || d.uniqueId || '?' });
+        g.vouches++; state(); send('vouch', { name: nameOf(U, d) });
       }
     });
 
@@ -235,4 +252,4 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-srv.listen(process.env.PORT || 3000,()=>console.log('Abre: http://localhost:'+(process.env.PORT||3000)+'/ruleta.html'));
+srv.listen(process.env.PORT || 3000, () => console.log('Abre: http://localhost:' + (process.env.PORT || 3000) + '/ruleta.html'));
