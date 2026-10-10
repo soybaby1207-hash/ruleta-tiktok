@@ -344,7 +344,7 @@ const cfgObj=r=>({cmd:'cfg',mode:$('mode').value,gift:getGift(),up:$('up').check
 function cfg(){tx(cfgObj(true))}function cfgKeep(){tx(cfgObj(false))}
 function abrir(s){tx({cmd:'open',sec:+s})}function auto(s){tx({cmd:'auto',sec:+s})}function girar(){tx({cmd:'spin'})}function reset(){tx({cmd:'reset'})}
 function test(n,m){tx({cmd:'test',n,mult:m||1,c:giftCoins()||1})}
-function ganador(p,msgs){const w=$('win');w.textContent='';msgs=(msgs||[]).filter(m=>/vouch/i.test(m)).slice(-5);w.classList.toggle('m',msgs.length>0);
+function ganador(p,msgs){const w=$('win');w.textContent='';msgs=(msgs||[]).filter(Boolean).slice(-5);w.classList.toggle('m',msgs.length>0);
  if(p.avatar){const im=new Image();im.referrerPolicy='no-referrer';im.src=p.avatar;w.appendChild(im)}
  w.appendChild(document.createTextNode('🏆 GANADOR'));w.appendChild(document.createElement('br'));w.appendChild(document.createTextNode(p.name));
  if(msgs.length){const lb=document.createElement('div');lb.id='wl';lb.textContent='ÚLTIMOS MENSAJES';w.appendChild(lb);const box=document.createElement('div');box.id='wm';msgs.forEach(m=>{const s=document.createElement('span');s.textContent=m;box.appendChild(s)});w.appendChild(box)}
@@ -532,7 +532,7 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
   const wait=is1v1()?(g.vs1sec||25):s;
   g.autoAt=Date.now()+wait*1000;g.autoSec=wait;state();autoT=setTimeout(()=>{if(g.players.length>1&&!solo()&&!busy){g.autoAt=0;state();spin()}else auto(g.au||s)},wait*1000)};
  const open=s=>{clearTimeout(joinT);auto(0);s=+s||60;g.phase='joining';g.joinEnd=Date.now()+s*1000;g.was1v1=false;state();joinT=setTimeout(()=>{g.phase='closed';g.started=true;auto(g.au)},s*1000)};
- function spin(){if(busy||!g.players.length)return;if(solo())return send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['vouch','vouch ✅']:[]});
+ function spin(){if(busy||!g.players.length)return;if(solo())return send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['hola a todos 👋','gracias por el apoyo','vouch ✅']:[]});
   busy=true;
   // 1vs1: solo uno, siempre
   let nKill=g.players.length===2?1:Math.max(1,Math.min(g.batch||1,g.players.length-1));
@@ -540,7 +540,7 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
   if(nKill===1){
     const t=g.players[rnd(g.players.length)],life=t.lives>1;
     send('spin',{id:t.id,life,ids:[t.id],totalBefore:g.players.length,nextMs:2500});
-    const end=()=>{busy=false;if(solo()){send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['vouch','vouch ✅']:[]});auto(0)}
+    const end=()=>{busy=false;if(solo()){send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['hola a todos 👋','gracias por el apoyo','vouch ✅']:[]});auto(0)}
       else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
       else if(g.started&&(g.autoSec||g.au))auto(is1v1()?(g.vs1sec||25):(g.au||15));
       else state()};
@@ -558,7 +558,7 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
     g.players=g.players.filter(x=>!idset.has(x.id));
     plist();state();
     setTimeout(()=>done(()=>{busy=false;
-      if(solo()){send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['vouch','vouch ✅']:[]});auto(0)}
+      if(solo()){send('win',{p:g.players[0],msgs:String(g.players[0].o||g.players[0].id).startsWith('t')?['hola a todos 👋','gracias por el apoyo','vouch ✅']:[]});auto(0)}
       else if(is1v1()&&!g.was1v1){g.was1v1=true;send('vs1',{a:g.players[0],b:g.players[1]});auto(g.vs1sec||25)}
       else if(g.started&&(g.autoSec||g.au))auto(is1v1()?(g.vs1sec||25):(g.au||15));
       else state();
@@ -583,6 +583,45 @@ L.start();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
 
+<script>
+/* Paso 1: seguir las 2 cuentas (autoconfirmado por el usuario, no verificado por TikTok).
+   Se muestra como una barra arriba, al estilo del aviso "Sin conectar" / estado de conexión,
+   con un fondo oscuro detrás que bloquea el resto de la página hasta confirmar. */
+(function(){
+ var KEY='ruleta_follows_ok';
+ if(new URLSearchParams(location.search).get('overlay'))return;
+ try{if(localStorage.getItem(KEY)==='1')return}catch(e){}
+
+ var wrap=document.createElement('div');
+ wrap.style.cssText='position:fixed;inset:0;z-index:100000;background:#0b0b0fcc;backdrop-filter:blur(2px)';
+ var bar=document.createElement('div');
+ bar.style.cssText='position:absolute;top:0;left:0;right:0;background:#1a1012;border-bottom:1px solid #ff5a7a55;'
+  +'padding:12px 16px;box-sizing:border-box;font-family:system-ui,sans-serif;color:#fff;font-size:13px;'
+  +'display:flex;flex-wrap:wrap;align-items:center;gap:10px;box-shadow:0 4px 18px #000a';
+ wrap.appendChild(bar);
+ document.body.appendChild(wrap);
+
+ function viewA(){
+  bar.innerHTML='<b style="color:#ff5a7a">⚠ Motivo:</b>'
+   +'<span style="color:#e6c9ce">Debes seguir estas 2 cuentas de TikTok para poder usar la aplicación.</span>'
+   +'<a id="gflink" href="#" style="color:#25f4ee;font-weight:700;text-decoration:underline;cursor:pointer;white-space:nowrap">Ver qué cuentas seguir →</a>';
+  bar.querySelector('#gflink').onclick=function(e){e.preventDefault();viewB()};
+ }
+
+ function viewB(){
+  bar.innerHTML='<b style="color:#fff">Sigue estas 2 cuentas:</b>'
+   +'<a href="https://www.tiktok.com/@soybaby1207" target="_blank" rel="noopener noreferrer" style="background:#fe2c55;color:#fff;text-decoration:none;font-weight:700;padding:6px 12px;border-radius:99px;white-space:nowrap">♪ @soybaby1207</a>'
+   +'<a href="https://www.tiktok.com/@soybaby1209" target="_blank" rel="noopener noreferrer" style="background:#fe2c55;color:#fff;text-decoration:none;font-weight:700;padding:6px 12px;border-radius:99px;white-space:nowrap">♪ @soybaby1209</a>'
+   +'<button id="gfbt" style="background:#25f4ee;color:#000;border:0;font-weight:700;padding:7px 14px;border-radius:99px;cursor:pointer;white-space:nowrap">Ya lo hice</button>'
+   +'<a id="gfback" href="#" style="color:#888;text-decoration:underline;cursor:pointer;white-space:nowrap">← Volver</a>'
+   +'<span id="gferr" style="color:#ff5a7a;width:100%"></span>';
+  bar.querySelector('#gfbt').onclick=function(){try{localStorage.setItem(KEY,'1')}catch(e){}wrap.remove()};
+  bar.querySelector('#gfback').onclick=function(e){e.preventDefault();viewA()};
+ }
+
+ viewA();
+})();
+</script>
 <script>
 /* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
 (function(){
