@@ -60,13 +60,19 @@ const srv = http.createServer(app), wss = new WebSocketServer({ server: srv }), 
 function room(user) {
   if (rooms[user]) return rooms[user];
   const r = rooms[user] = { clients: new Set(), conn: null, dead: false, configured: false, methods: {}, log: [], status: '', pics: {}, msgs: {}, vm: {} };
-  const g = { players: [], phase: 'open', joinEnd: 0, autoAt: 0, autoSec: 0, gifts: 0, coins: 0, entries: 0, mode: 'free', gift: 'Rose', up: false, sc: true, vouches: 0, sec: 60, au: 15, ini: 120, tl: true, batch: 1, vs1sec: 25, im: '', bgt: 'none', bgc: '#101018', bgu: '', bgk: 'img', bgl: true, bgfit: 'cover', bgpos: 'center', cv: 0, gu: {}, was1v1: false };
+  const g = { players: [], phase: 'open', joinEnd: 0, autoAt: 0, autoSec: 0, gifts: 0, coins: 0, entries: 0, mode: 'free', gift: 'Rose', up: false, sc: true, vouches: 0, sec: 60, au: 15, ini: 120, iniOn: true, started: false, tl: true, batch: 1, vs1sec: 25, im: '', bgt: 'none', bgc: '#101018', bgu: '', bgk: 'img', bgl: true, bgfit: 'cover', bgpos: 'center', cv: 0, gu: {}, was1v1: false };
   let joinT, autoT, busy = false, ackFn = null, ackT = null, seq = 0;
   const MAXC = 30, solo = () => g.players.length > 0 && new Set(g.players.map(p => p.o || p.id)).size === 1;
   const send = (event, data) => { if (event === 'status') r.status = data.msg; const m = JSON.stringify({ event, data }); r.clients.forEach(c => c.readyState === 1 && c.send(m)); };
   const state = () => { const { players, ...s } = g; send('state', { ...s, now: Date.now() }); }, plist = () => send('players', { players: g.players });
   const is1v1 = () => g.mode === 'lock' && g.players.length === 2;
-  const win = () => { const p = g.players[0]; send('win', { p, msgs: (r.vm[p.o || p.id] || []).slice(-5) }); };
+  const win = () => {
+    const p = g.players[0], uid = p.o || p.id; r.winner = uid;
+    const last = (r.msgs[uid] || []).slice(-5);
+    const bonus = last.filter(m => /vouch/i.test(m)).length; // vouches ya escritos antes de ganar, se suman al ganar
+    if (bonus) g.vouches += bonus;
+    send('win', { p, msgs: last });
+  };
   const done = f => { clearTimeout(ackT); ackFn = () => { clearTimeout(ackT); ackFn = null; f(); }; ackT = setTimeout(() => ackFn && ackFn(), 8000); };
   const auto = s => {
     clearTimeout(autoT); s = +s || 0; g.autoSec = s; if (!s) { g.autoAt = 0; return state(); }
@@ -76,13 +82,13 @@ function room(user) {
   };
   const open = s => {
     clearTimeout(joinT); auto(0); s = +s || 60; g.phase = 'joining'; g.joinEnd = Date.now() + s * 1000; g.was1v1 = false; state();
-    joinT = setTimeout(() => { g.phase = 'closed'; auto(g.au); }, s * 1000);
+    joinT = setTimeout(() => { g.phase = 'closed'; g.started = true; auto(g.au); }, s * 1000);
   };
 
   function spin() {
     if (busy || !g.players.length) return;
     if (solo()) return win();
-    busy = true;
+    busy = true; r.winner = null;
     let nKill = g.players.length === 2 ? 1 : Math.max(1, Math.min(g.batch || 1, g.players.length - 1));
     if (nKill === 1) {
       const t = g.players[rnd(g.players.length)], life = t.lives > 1;
@@ -91,7 +97,7 @@ function room(user) {
         busy = false;
         if (solo()) { win(); auto(0); }
         else if (is1v1() && !g.was1v1) { g.was1v1 = true; send('vs1', { a: g.players[0], b: g.players[1] }); auto(g.vs1sec || 25); }
-        else if (g.autoSec || g.au) auto(is1v1() ? (g.vs1sec || 25) : (g.au || 15));
+        else if (g.started && (g.autoSec || g.au)) auto(is1v1() ? (g.vs1sec || 25) : (g.au || 15));
         else state();
       };
       if (life) setTimeout(() => { t.lives--; plist(); done(end); }, 1400);
@@ -110,7 +116,7 @@ function room(user) {
         busy = false;
         if (solo()) { win(); auto(0); }
         else if (is1v1() && !g.was1v1) { g.was1v1 = true; send('vs1', { a: g.players[0], b: g.players[1] }); auto(g.vs1sec || 25); }
-        else if (g.autoSec || g.au) auto(is1v1() ? (g.vs1sec || 25) : (g.au || 15));
+        else if (g.started && (g.autoSec || g.au)) auto(is1v1() ? (g.vs1sec || 25) : (g.au || 15));
         else state();
       });
     }, 1750);
@@ -141,19 +147,22 @@ function room(user) {
     if (c.au !== undefined) g.au = +c.au || 0;
     if (c.ini !== undefined) g.ini = Math.max(0, +c.ini || 0);
     if (c.tl !== undefined) g.tl = !!c.tl;
+    if (c.iniOn !== undefined) g.iniOn = !!c.iniOn;
     if (c.batch !== undefined) g.batch = Math.max(1, +c.batch || 1);
     if (c.vs1sec !== undefined) g.vs1sec = Math.max(5, +c.vs1sec || 25);
     g.cv++;
     if (c.restart) {
-      clearTimeout(joinT); g.joinEnd = 0; g.was1v1 = false;
-      if (g.mode === 'lock') { if (g.tl) open(g.sec); else { g.phase = 'closed'; auto(g.ini || g.au); } }
-      else { g.phase = 'open'; auto(g.ini || g.au); }
+      // la ruleta vuelve a empezar PAUSADA: hay que pulsar Play
+      clearTimeout(joinT); g.joinEnd = 0; g.was1v1 = false; r.winner = null; g.started = false; auto(0);
+      g.phase = (g.mode === 'lock' && !g.tl) ? 'closed' : 'open';
     }
     state();
   };
 
   r.cmd = {
-    cfg: m => cfg(m, m.soft), open: m => open(m.sec || g.sec), auto: m => auto(m.sec), spin,
+    cfg: m => cfg(m, m.soft), open: m => open(m.sec || g.sec), auto: m => { if (g.started) auto(m.sec); }, spin,
+    // Play: arranca la ruleta (con el tiempo inicial si está activado). No se puede volver a pausar; solo reiniciar.
+    play: () => { if (g.started) return; g.started = true; if (g.mode === 'lock' && g.tl) open(g.sec); else auto((g.iniOn && g.ini) ? g.ini : (g.au || 15)); },
     animdone: () => { ackFn && ackFn(); }, vouch: () => { g.vouches++; state(); },
     reset: () => { g.players = []; g.gifts = g.coins = g.entries = 0; g.vouches = 0; g.was1v1 = false; cfg({ ...g, restart: true }); plist(); },
     test: m => { for (let i = 0; i < Math.min(+m.n || 1, 100); i++) setTimeout(() => add(fake(), (+m.c || 1) * (+m.mult || 1), +m.mult || 1), i * 90); }
@@ -218,7 +227,8 @@ function room(user) {
       if (/vouch/i.test(txt)) {
         const va = r.vm[uid] || (r.vm[uid] = []); va.push(txt); if (va.length > 5) va.shift();
         const kv = Object.keys(r.vm); if (kv.length > 3000) delete r.vm[kv[0]];
-        g.vouches++; state(); send('vouch', { name: nameOf(U, d) });
+        // solo cuenta el vouch si lo escribe la persona que ganó
+        if (r.winner && uid === r.winner) { g.vouches++; state(); send('vouch', { name: nameOf(U, d) }); }
       }
     });
 
@@ -233,7 +243,7 @@ function room(user) {
     });
   }
 
-  r.start = connect; auto(g.ini || g.au || 15); return r;
+  r.start = connect; auto(0); return r;
 }
 
 wss.on('connection', (ws, req) => {
