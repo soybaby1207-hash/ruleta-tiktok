@@ -583,45 +583,7 @@ L.start();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
 
-<script>
-/* Paso 1: seguir las 2 cuentas (autoconfirmado por el usuario, no verificado por TikTok).
-   Se muestra como una barra arriba, al estilo del aviso "Sin conectar" / estado de conexión,
-   con un fondo oscuro detrás que bloquea el resto de la página hasta confirmar. */
-(function(){
- var KEY='ruleta_follows_ok';
- if(new URLSearchParams(location.search).get('overlay'))return;
- try{if(localStorage.getItem(KEY)==='1')return}catch(e){}
 
- var wrap=document.createElement('div');
- wrap.style.cssText='position:fixed;inset:0;z-index:100000;background:#0b0b0fcc;backdrop-filter:blur(2px)';
- var bar=document.createElement('div');
- bar.style.cssText='position:absolute;top:0;left:0;right:0;background:#1a1012;border-bottom:1px solid #ff5a7a55;'
-  +'padding:12px 16px;box-sizing:border-box;font-family:system-ui,sans-serif;color:#fff;font-size:13px;'
-  +'display:flex;flex-wrap:wrap;align-items:center;gap:10px;box-shadow:0 4px 18px #000a';
- wrap.appendChild(bar);
- document.body.appendChild(wrap);
-
- function viewA(){
-  bar.innerHTML='<b style="color:#ff5a7a">⚠ Motivo:</b>'
-   +'<span style="color:#e6c9ce">Debes seguir estas 2 cuentas de TikTok para poder usar la aplicación.</span>'
-   +'<a id="gflink" href="#" style="color:#25f4ee;font-weight:700;text-decoration:underline;cursor:pointer;white-space:nowrap">Ver qué cuentas seguir →</a>';
-  bar.querySelector('#gflink').onclick=function(e){e.preventDefault();viewB()};
- }
-
- function viewB(){
-  bar.innerHTML='<b style="color:#fff">Sigue estas 2 cuentas:</b>'
-   +'<a href="https://www.tiktok.com/@soybaby1207" target="_blank" rel="noopener noreferrer" style="background:#fe2c55;color:#fff;text-decoration:none;font-weight:700;padding:6px 12px;border-radius:99px;white-space:nowrap">♪ @soybaby1207</a>'
-   +'<a href="https://www.tiktok.com/@soybaby1209" target="_blank" rel="noopener noreferrer" style="background:#fe2c55;color:#fff;text-decoration:none;font-weight:700;padding:6px 12px;border-radius:99px;white-space:nowrap">♪ @soybaby1209</a>'
-   +'<button id="gfbt" style="background:#25f4ee;color:#000;border:0;font-weight:700;padding:7px 14px;border-radius:99px;cursor:pointer;white-space:nowrap">Ya lo hice</button>'
-   +'<a id="gfback" href="#" style="color:#888;text-decoration:underline;cursor:pointer;white-space:nowrap">← Volver</a>'
-   +'<span id="gferr" style="color:#ff5a7a;width:100%"></span>';
-  bar.querySelector('#gfbt').onclick=function(){try{localStorage.setItem(KEY,'1')}catch(e){}wrap.remove()};
-  bar.querySelector('#gfback').onclick=function(e){e.preventDefault();viewA()};
- }
-
- viewA();
-})();
-</script>
 <script>
 /* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
 (function(){
