@@ -582,25 +582,3 @@ $('cs').textContent='Modo prueba local (sin servidor)';try{const u=localStorage.
 L.start();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
-
-
-<script>
-/* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
-(function(){
- var PASS='wbabyjeje';
- if(new URLSearchParams(location.search).get('overlay'))return;
- try{if(localStorage.getItem('ruleta_ok')===PASS)return}catch(e){}
- var g=document.createElement('div');
- g.style.cssText='position:fixed;inset:0;z-index:99999;background:#0b0b0f;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
- g.innerHTML='<div style="background:#17171d;padding:26px;border-radius:14px;width:300px;text-align:center;color:#fff">'
-  +'<div style="font-size:18px;font-weight:700;margin-bottom:6px">🔒 Acceso privado</div>'
-  +'<div style="font-size:13px;color:#aaa;margin-bottom:14px">Escribe la contraseña para entrar</div>'
-  +'<input id="gpw" type="password" placeholder="Contraseña" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border:0;border-radius:8px;background:#26262f;color:#fff;font-size:14px">'
-  +'<div id="gerr" style="color:#ff5a7a;font-size:12px;height:16px;margin:6px 0"></div>'
-  +'<button id="gbt" style="width:100%;padding:10px;border:0;border-radius:8px;background:#25f4ee;color:#000;font-weight:700;font-size:14px;cursor:pointer">Entrar</button></div>';
- document.body.appendChild(g);
- var i=g.querySelector('#gpw'),e=g.querySelector('#gerr');
- function go(){if(i.value===PASS){try{localStorage.setItem('ruleta_ok',PASS)}catch(x){}g.remove()}else{e.textContent='Contraseña incorrecta';i.value='';i.focus()}}
- g.querySelector('#gbt').onclick=go;i.onkeydown=function(ev){if(ev.key==='Enter')go()};i.focus();
-})();
-</script>
