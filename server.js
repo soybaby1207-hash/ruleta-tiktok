@@ -164,7 +164,7 @@ function room(user) {
     // Play: arranca la ruleta (con el tiempo inicial si está activado). No se puede volver a pausar; solo reiniciar.
     play: () => { if (g.started) return; g.started = true; if (g.mode === 'lock' && g.tl) open(g.sec); else auto((g.iniOn && g.ini) ? g.ini : (g.au || 15)); },
     animdone: () => { ackFn && ackFn(); }, vouch: () => { g.vouches++; state(); },
-    reset: () => { g.players = []; g.gifts = g.coins = g.entries = 0; g.vouches = 0; g.was1v1 = false; cfg({ ...g, restart: true }); plist(); },
+    reset: () => { g.players = []; g.gifts = g.coins = g.entries = 0; g.was1v1 = false; cfg({ ...g, restart: true }); plist(); }, // los vouches NO se borran: son permanentes
     test: m => { for (let i = 0; i < Math.min(+m.n || 1, 100); i++) setTimeout(() => add(fake(), (+m.c || 1) * (+m.mult || 1), +m.mult || 1), i * 90); }
   };
 
@@ -224,11 +224,17 @@ function room(user) {
       const txt = String(d.content ?? d.comment ?? '').trim().slice(0, 200); if (!txt) return;
       const U = d.user || {}, uid = idOf(U, d), arr = r.msgs[uid] || (r.msgs[uid] = []); arr.push(txt); if (arr.length > 5) arr.shift();
       const ks = Object.keys(r.msgs); if (ks.length > 3000) delete r.msgs[ks[0]];
+      // si quien escribe es la persona que acaba de ganar, su mensaje se manda en directo a la pantalla de ganador
+      if (r.winner && uid === r.winner) send('winmsg', { text: txt });
       if (/vouch/i.test(txt)) {
         const va = r.vm[uid] || (r.vm[uid] = []); va.push(txt); if (va.length > 5) va.shift();
         const kv = Object.keys(r.vm); if (kv.length > 3000) delete r.vm[kv[0]];
         // solo cuenta el vouch si lo escribe la persona que ganó
-        if (r.winner && uid === r.winner) { g.vouches++; state(); send('vouch', { name: nameOf(U, d) }); }
+        if (r.winner && uid === r.winner) {
+          g.vouches++; state(); send('vouch', { name: nameOf(U, d) });
+          // al detectar "vouch" del ganador, la ruleta se reinicia sola (igual que pulsar "Reiniciar todo")
+          r.cmd.reset();
+        }
       }
     });
 
