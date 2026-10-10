@@ -347,8 +347,17 @@ function test(n,m){tx({cmd:'test',n,mult:m||1,c:giftCoins()||1})}
 function ganador(p,msgs){const w=$('win');w.textContent='';msgs=(msgs||[]).filter(Boolean).slice(-5);w.classList.toggle('m',msgs.length>0);
  if(p.avatar){const im=new Image();im.referrerPolicy='no-referrer';im.src=p.avatar;w.appendChild(im)}
  w.appendChild(document.createTextNode('🏆 GANADOR'));w.appendChild(document.createElement('br'));w.appendChild(document.createTextNode(p.name));
- if(msgs.length){const lb=document.createElement('div');lb.id='wl';lb.textContent='ÚLTIMOS MENSAJES';w.appendChild(lb);const box=document.createElement('div');box.id='wm';msgs.forEach(m=>{const s=document.createElement('span');s.textContent=m;box.appendChild(s)});w.appendChild(box)}
+ const lb=document.createElement('div');lb.id='wl';lb.textContent='ÚLTIMOS MENSAJES';lb.style.display=msgs.length?'block':'none';w.appendChild(lb);
+ const box=document.createElement('div');box.id='wm';msgs.forEach(m=>{const s=document.createElement('span');s.textContent=m;box.appendChild(s)});w.appendChild(box);
  w.style.display='flex';clearTimeout(ganador.t);ganador.t=setTimeout(()=>w.style.display='none',msgs.length?11000:9000)}
+// mensaje del ganador que llega en directo mientras la pantalla de GANADOR sigue visible
+function winmsg(text){const w=$('win');if(w.style.display!=='flex')return;
+ let lb=w.querySelector('#wl'),box=w.querySelector('#wm');
+ if(!box){box=document.createElement('div');box.id='wm';w.appendChild(box)}
+ if(lb)lb.style.display='block';
+ const s=document.createElement('span');s.textContent=text;box.appendChild(s);
+ while(box.children.length>5)box.removeChild(box.firstChild);
+ w.classList.add('m');clearTimeout(ganador.t);ganador.t=setTimeout(()=>w.style.display='none',11000)}
 const rnd=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;
 function show1v1(a,b){
   const v=$('vs1');if(!v)return;v.innerHTML='';
@@ -515,7 +524,7 @@ function handle(m){const d=m.data||{};switch(m.event){
    if(d.cv!==cv){cv=d.cv;$('mode').value=d.mode;setGift(d.gift);$('up').checked=d.up;if(d.sc!==undefined)$('sc').checked=d.sc;if(d.tl!==undefined)$('tl').checked=d.tl;$('im').value=d.im||'';$('sec').value=d.sec;$('au').value=d.au;if(d.ini!==undefined)$('ini').value=d.ini;if(d.iniOn!==undefined)$('iniOn').checked=d.iniOn;if($('batch')&&d.batch)$('batch').value=d.batch;if($('vs1sec')&&d.vs1sec)$('vs1sec').value=d.vs1sec;$('bgt').value=d.bgt||'none';$('bgc').value=d.bgc||'#101018';if(d.bgu)$('bgu').value=d.bgu;else if(d.bgt==='none'||d.bgt==='color')$('bgu').value='';$('bgk').value=d.bgk||'img';$('bgl').checked=d.bgl!==false;if($('bgfit'))$('bgfit').value=d.bgfit||'cover';if($('bgpos'))$('bgpos').value=d.bgpos||'center'}applyBg(d);ui();break;
   case'vs1':if(d.a&&d.b&&$('mode').value==='lock')show1v1(d.a,d.b);break;
   case'players':if(spinning)pend=d.players;else{players=d.players;render();ui()}break;
-  case'owner':setMe(d.avatar,d.name,unav());break;case'spin':anim(d);break;case'toast':toast(d.p,d.n,d.k);break;case'win':ganador(d.p,d.msgs)}}
+  case'owner':setMe(d.avatar,d.name,unav());break;case'spin':anim(d);break;case'toast':toast(d.p,d.n,d.k);break;case'win':ganador(d.p,d.msgs);break;case'winmsg':winmsg(d.text)}}
 function conectar(u){u=typeof u==='string'?u:wsUrl();try{sock&&(sock.onclose=null,sock.close());const s2=sock=new WebSocket(u);
  s2.onopen=()=>{srv=true;L.stop();cv=-1;$('cs').textContent='✅ Conectado al servidor';if(Q.get('overlay'))tx({...cfgObj(true),soft:true})};
  s2.onerror=()=>{if(!srv)$('cs').textContent='❌ Sin servidor · modo prueba local'};
@@ -571,7 +580,7 @@ const L=(()=>{const g={players:[],phase:'open',joinEnd:0,autoAt:0,autoSec:0,gift
   if(c.restart){clearTimeout(joinT);g.joinEnd=0;g.was1v1=false;g.started=false;auto(0);g.phase=(g.mode==='lock'&&!g.tl)?'closed':'open'}state()};
  const NM=['maria','carlos','lucia','juan','sofia','diego','ana','pablo','laura','javi','carmen','alex','paula','david','marta','sergio','elena','raul','nuria','ivan'],SF=['_xx','.oficial','88','_17','_tv','.mx','_rd','23','_vip','_09'];
  const fake=()=>({id:'t'+Math.random(),name:NM[rnd(NM.length)]+SF[rnd(SF.length)],avatar:`https://randomuser.me/api/portraits/${rnd(2)?'women':'men'}/${rnd(99)}.jpg`});
- const cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>{if(g.started)auto(m.sec)},play:()=>{if(g.started)return;g.started=true;if(g.mode==='lock'&&g.tl)open(g.sec);else auto((g.iniOn&&g.ini)?g.ini:(g.au||15))},spin,reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.vouches=0;g.was1v1=false;cfg({...g,restart:true});plist()},
+ const cmd={cfg:m=>cfg(m,m.soft),open:m=>open(m.sec||g.sec),auto:m=>{if(g.started)auto(m.sec)},play:()=>{if(g.started)return;g.started=true;if(g.mode==='lock'&&g.tl)open(g.sec);else auto((g.iniOn&&g.ini)?g.ini:(g.au||15))},spin,reset:()=>{g.players=[];g.gifts=g.coins=g.entries=0;g.was1v1=false;cfg({...g,restart:true});plist()}, // los vouches NO se borran: son permanentes
   vouch:()=>{g.vouches++;state()},
   test:m=>{for(let i=0;i<Math.min(+m.n||1,100);i++)setTimeout(()=>add(fake(),(+m.c||1)*(+m.mult||1),+m.mult||1),i*90)}};
  return{cmd,start:()=>auto(0),stop:()=>{on=false;clearTimeout(joinT);clearTimeout(autoT)}}})();
@@ -582,3 +591,25 @@ $('cs').textContent='Modo prueba local (sin servidor)';try{const u=localStorage.
 L.start();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 </script></html>
+
+
+<script>
+/* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
+(function(){
+ var PASS='wbabyjeje';
+ if(new URLSearchParams(location.search).get('overlay'))return;
+ try{if(localStorage.getItem('ruleta_ok')===PASS)return}catch(e){}
+ var g=document.createElement('div');
+ g.style.cssText='position:fixed;inset:0;z-index:99999;background:#0b0b0f;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
+ g.innerHTML='<div style="background:#17171d;padding:26px;border-radius:14px;width:300px;text-align:center;color:#fff">'
+  +'<div style="font-size:18px;font-weight:700;margin-bottom:6px">🔒 Acceso privado</div>'
+  +'<div style="font-size:13px;color:#aaa;margin-bottom:14px">Escribe la contraseña para entrar</div>'
+  +'<input id="gpw" type="password" placeholder="Contraseña" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border:0;border-radius:8px;background:#26262f;color:#fff;font-size:14px">'
+  +'<div id="gerr" style="color:#ff5a7a;font-size:12px;height:16px;margin:6px 0"></div>'
+  +'<button id="gbt" style="width:100%;padding:10px;border:0;border-radius:8px;background:#25f4ee;color:#000;font-weight:700;font-size:14px;cursor:pointer">Entrar</button></div>';
+ document.body.appendChild(g);
+ var i=g.querySelector('#gpw'),e=g.querySelector('#gerr');
+ function go(){if(i.value===PASS){try{localStorage.setItem('ruleta_ok',PASS)}catch(x){}g.remove()}else{e.textContent='Contraseña incorrecta';i.value='';i.focus()}}
+ g.querySelector('#gbt').onclick=go;i.onkeydown=function(ev){if(ev.key==='Enter')go()};i.focus();
+})();
+</script>
