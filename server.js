@@ -25,9 +25,100 @@ const COINS = { rose: 1, tiktok: 1, 'ice cream cone': 1, 'heart me': 1, 'finger 
 const NM = ['maria', 'carlos', 'lucia', 'juan', 'sofia', 'diego', 'ana', 'pablo', 'laura', 'javi', 'carmen', 'alex', 'paula', 'david', 'marta', 'sergio', 'elena', 'raul', 'nuria', 'ivan'], SF = ['_xx', '.oficial', '88', '_17', '_tv', '.mx', '_rd', '23', '_vip', '_09'];
 const fake = () => ({ id: 't' + crypto.randomUUID(), name: NM[rnd(NM.length)] + SF[rnd(SF.length)], avatar: `https://randomuser.me/api/portraits/${rnd(2) ? 'women' : 'men'}/${rnd(99)}.jpg` });
 
+
+// ===================== Cuentas de creador ("Nuestros mejores creadores") =====================
+// Guardado en un archivo JSON junto al servidor. OJO: en Render (plan gratis), el disco se borra
+// en cada nuevo despliegue (deploy), así que las cuentas sobreviven a reinicios normales pero no
+// a cuando subes código nuevo. Para que sobrevivan a los deploys hace falta una base de datos externa.
+// Sin contraseñas: entrar con el usuario basta (crea el perfil la primera vez, o entra en él si ya existe).
+const CDATA_DIR = path.join(__dirname, 'data');
+const CDATA_FILE = path.join(CDATA_DIR, 'creators.json');
+fs.mkdirSync(CDATA_DIR, { recursive: true });
+function loadCreators() {
+  try { return JSON.parse(fs.readFileSync(CDATA_FILE, 'utf8')); } catch (e) { return {}; }
+}
+function saveCreators(db) {
+  try { fs.writeFileSync(CDATA_FILE, JSON.stringify(db, null, 2)); } catch (e) { console.error('No se pudo guardar creators.json', e.message); }
+}
+let creatorsDB = loadCreators();
+const normUser = u => String(u || '').trim().replace(/^@/, '').toLowerCase().slice(0, 40);
+const publicCreator = c => ({ username: c.username, displayName: c.displayName, bio: c.bio, tiktok: c.tiktok, avatar: c.avatar, featured: !!c.featured });
+
+// sesiones en memoria: token -> username (se pierden si el servidor se reinicia; solo hay que volver a entrar)
+const sessions = {};
+function parseCookies(req) {
+  const h = req.headers.cookie; const out = {};
+  if (h) h.split(';').forEach(p => { const i = p.indexOf('='); if (i > -1) out[p.slice(0, i).trim()] = decodeURIComponent(p.slice(i + 1).trim()); });
+  return out;
+}
+function currentUser(req) {
+  const tok = parseCookies(req).bt_session;
+  return tok && sessions[tok] ? sessions[tok] : null;
+}
+function setSessionCookie(res, token) {
+  res.setHeader('Set-Cookie', `bt_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`);
+}
+
 const app = express();
 app.get('/', (q, r) => r.redirect('/ruleta.html'));
 app.use(express.static('public'));
+app.use(express.json({ limit: '100kb' }));
+
+
+
+// Sin contraseña: si el usuario no existe se crea, si ya existe entras directamente en ese perfil.
+app.post('/api/creators/enter', (q, res) => {
+  const username = normUser(q.body && q.body.username);
+  const displayName = String((q.body && q.body.displayName) || username).slice(0, 60);
+  if (!/^[a-z0-9._]{2,24}$/.test(username)) return res.status(400).json({ error: 'Usuario de TikTok no válido' });
+  if (!creatorsDB[username]) {
+    creatorsDB[username] = { username, displayName, bio: '', tiktok: 'https://www.tiktok.com/@' + username, avatar: '', featured: false, createdAt: Date.now() };
+    saveCreators(creatorsDB);
+  }
+  const token = crypto.randomBytes(24).toString('hex'); sessions[token] = username; setSessionCookie(res, token);
+  res.json({ ok: true, creator: publicCreator(creatorsDB[username]) });
+});
+
+app.post('/api/creators/logout', (q, res) => {
+  const tok = parseCookies(q).bt_session; if (tok) delete sessions[tok];
+  res.setHeader('Set-Cookie', 'bt_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+  res.json({ ok: true });
+});
+
+app.get('/api/creators/me', (q, res) => {
+  const username = currentUser(q), c = username && creatorsDB[username];
+  if (!c) return res.status(401).json({ error: 'No has iniciado sesión' });
+  res.json({ ok: true, creator: publicCreator(c) });
+});
+
+app.post('/api/creators/me', (q, res) => {
+  const username = currentUser(q), c = username && creatorsDB[username];
+  if (!c) return res.status(401).json({ error: 'No has iniciado sesión' });
+  const b = q.body || {};
+  if (b.displayName !== undefined) c.displayName = String(b.displayName).slice(0, 60);
+  if (b.bio !== undefined) c.bio = String(b.bio).slice(0, 240);
+  if (b.tiktok !== undefined && /^https:\/\/(www\.)?tiktok\.com\/@[a-zA-Z0-9._]{2,24}$/.test(b.tiktok)) c.tiktok = b.tiktok;
+  if (b.avatar !== undefined && (/^https?:\/\//.test(b.avatar) || b.avatar === '')) c.avatar = String(b.avatar).slice(0, 500);
+  saveCreators(creatorsDB);
+  res.json({ ok: true, creator: publicCreator(c) });
+});
+
+// pública: lista de creadores destacados ("Nuestros mejores creadores")
+app.get('/api/creators/top', (q, res) => {
+  const list = Object.values(creatorsDB).filter(c => c.featured).sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0) || a.createdAt - b.createdAt);
+  res.json({ ok: true, creators: list.map(publicCreator) });
+});
+
+// solo para quien conoce la contraseña del panel (wbabyjeje): destacar o quitar a un creador
+app.post('/api/creators/feature', (q, res) => {
+  const b = q.body || {};
+  if (b.adminPass !== ADMIN_PASS) return res.status(403).json({ error: 'Contraseña de administrador incorrecta' });
+  const username = normUser(b.username), c = creatorsDB[username];
+  if (!c) return res.status(404).json({ error: 'Ese usuario no está registrado' });
+  c.featured = !!b.featured; if (b.featured) c.featuredOrder = Date.now();
+  saveCreators(creatorsDB);
+  res.json({ ok: true, creator: publicCreator(c) });
+});
 
 app.get('/debug', (q, res) => {
     const u = String(q.query.user || '').replace('@', '').trim().toLowerCase(), r = rooms[u];
