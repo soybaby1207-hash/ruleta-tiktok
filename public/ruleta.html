@@ -534,43 +534,7 @@ body:not(.o) #w #t.run { background:#e5444a!important;color:#fff!important; }
 </div><small>En TikTok LIVE Studio: Añadir fuente → Enlace/Web. El enlace lleva tus reglas y se conecta solo. Ábrelo antes en Chrome para comprobar que se ve.</small></section><section class=dp id=d-normas><div class=sech><b>Reglas</b><span>Lo que tiene que saber quien participa</span></div><div class=how><b>Cómo se juega</b><ol><li>Para entrar, mandas la <b>Rose</b> en el directo. Cada regalo es una carta.</li><li>Cuando termina la cuenta atrás, se elimina una carta al azar.</li><li>Gana la última persona que queda.</li><li>El ganador escribe <b>vouch</b> en el chat y suma al contador.</li></ol></div></section><section class=dp id=d-top><div class=sech><b>Top creadores</b><span>Nuestros mejores creadores: crea tu cuenta para poder aparecer aquí</span></div>
 <div id=topList class=fg style="grid-template-columns:1fr;margin-bottom:18px"><small>Cargando...</small></div>
 
-<div id=topAuthBox>
-<div class=btns><button id=topTabLogin onclick="topShowForm('login')">Iniciar sesión</button><button id=topTabSignup class=g onclick="topShowForm('signup')">Crear cuenta</button></div>
-<div id=topLoginForm class=fg style="margin-top:14px">
-<div><label class=fl>Usuario de TikTok</label><input id=topLoginUser placeholder="tuusuario" autocomplete=username></div>
-<div><label class=fl>Contraseña</label><input id=topLoginPass type=password placeholder="••••••••" autocomplete=current-password></div>
-</div>
-<div id=topSignupForm class=fg style="margin-top:14px;display:none">
-<div><label class=fl>Usuario de TikTok</label><input id=topSignupUser placeholder="tuusuario" autocomplete=username></div>
-<div><label class=fl>Nombre a mostrar</label><input id=topSignupName placeholder="Nombre visible"></div>
-<div><label class=fl>Contraseña</label><input id=topSignupPass type=password placeholder="Mínimo 6 caracteres" autocomplete=new-password></div>
-</div>
-<div id=topAuthErr style="color:#ff5a7a;font-size:12px;margin-top:8px"></div>
-<div class=btns style="margin-top:10px"><button id=topAuthGo data-mode=login onclick="topAuthSubmit()">Iniciar sesión</button></div>
-</div>
 
-<div id=topProfileBox style="display:none">
-<div class=cr><div class=crav id=topAv></div><div class=crt><b id=topProfName></b><span id=topProfUser></span></div></div>
-<div class=fg>
-<div><label class=fl>Nombre a mostrar</label><input id=topPName></div>
-<div><label class=fl>Enlace de TikTok</label><input id=topPTiktok placeholder="https://www.tiktok.com/@usuario"></div>
-<div style="grid-column:1/-1"><label class=fl>Biografía</label><input id=topPBio placeholder="Cuéntale a la gente quién eres"></div>
-<div style="grid-column:1/-1"><label class=fl>URL de foto de perfil</label><input id=topPAvatar placeholder="https://..."></div>
-</div>
-<div id=topProfMsg style="font-size:12px;margin-top:8px"></div>
-<div class=btns style="margin-top:10px"><button onclick="topSaveProfile()">Guardar cambios</button><button class=g onclick="topLogout()">Cerrar sesión</button></div>
-</div>
-
-<div style="margin-top:24px;padding-top:16px;border-top:1px solid #ffffff14">
-<div class=fl style="margin-bottom:8px">Panel de administrador</div>
-<div class=fg>
-<div><label class=fl>Usuario a destacar</label><input id=topAdmUser placeholder="usuario"></div>
-<div><label class=fl>Contraseña de admin</label><input id=topAdmPass type=password placeholder="Contraseña del panel"></div>
-</div>
-<div class=btns style="margin-top:10px"><button onclick="topAdminFeature(true)">Destacar</button><button class=g onclick="topAdminFeature(false)">Quitar de destacados</button></div>
-<div id=topAdmMsg style="font-size:12px;margin-top:8px"></div>
-</div>
-<small>Las cuentas se guardan en el servidor. En el plan gratis de Render sobreviven a reinicios normales, pero se borran cada vez que subes código nuevo (deploy) — para que sean permanentes del todo hace falta una base de datos externa.</small>
 </section>
 <section class=dp id=d-creador><div class=sech><b>Creador</b><span>Quién está detrás de Baby Tools</span></div><div class=cr><div class=crav></div><div class=crt><b>@soybaby1207</b><span>Creador de Baby Tools</span></div></div><a class="soc big" href="https://www.tiktok.com/@soybaby1207" target=_blank rel="noopener noreferrer"><span>♪</span>Seguir en TikTok</a><div class=fl style="margin:20px 0 8px">Mis redes</div><div class=socs><a class="soc on" href="https://www.tiktok.com/@soybaby1207" target=_blank rel="noopener noreferrer"><span>♪</span>TikTok</a><span class="soc off" title="Enlace pendiente"><span>📸</span>Instagram</span><span class="soc off" title="Enlace pendiente"><span>▶</span>YouTube</span><span class="soc off" title="Enlace pendiente"><span>💬</span>Discord</span><span class="soc off" title="Enlace pendiente"><span>✕</span>X</span></div><small>Los botones apagados se activan cuando se añade su enlace.</small></section>
 
@@ -836,39 +800,11 @@ function enlace(){const q=new URLSearchParams({overlay:1,ws:$('ws').value,mode:$
 addEventListener('resize',()=>render());setInterval(clock,300);render();ui();
 $('cs').textContent='Modo prueba local (sin servidor)';try{const u=localStorage.getItem('ruleta_user');if(u&&!Q.get('overlay')){$('tu').value=u;preview()}}catch(e){}
 L.start();
-topShowForm('login');topCheckSession();topRenderList();
+topRenderList();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 
-/* ---- "Nuestros mejores creadores": cuentas de creador, perfil y panel de admin ---- */
-let topUser=null;
+/* ---- Lista pública de creadores destacados ---- */
 async function topJSON(url,opts){const o=Object.assign({headers:{'Content-Type':'application/json'}},opts);const r=await fetch(url,o);let j={};try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j.error||'Error');return j}
-function topShowForm(which){
- const a=$('topTabLogin'),b=$('topTabSignup');if(a)a.classList.toggle('g',which!=='login');if(b)b.classList.toggle('g',which!=='signup');
- if($('topLoginForm'))$('topLoginForm').style.display=which==='login'?'grid':'none';
- if($('topSignupForm'))$('topSignupForm').style.display=which==='signup'?'grid':'none';
- if($('topAuthGo')){$('topAuthGo').textContent=which==='login'?'Iniciar sesión':'Crear cuenta';$('topAuthGo').dataset.mode=which}
- if($('topAuthErr'))$('topAuthErr').textContent=''}
-async function topAuthSubmit(){
- const mode=($('topAuthGo')&&$('topAuthGo').dataset.mode)||'login';if($('topAuthErr'))$('topAuthErr').textContent='';
- try{
-  let j;
-  if(mode==='login')j=await topJSON('/api/creators/login',{method:'POST',body:JSON.stringify({username:$('topLoginUser').value,password:$('topLoginPass').value})});
-  else j=await topJSON('/api/creators/signup',{method:'POST',body:JSON.stringify({username:$('topSignupUser').value,password:$('topSignupPass').value,displayName:$('topSignupName').value})});
-  topUser=j.creator;topRenderProfile();topRenderList()
- }catch(e){if($('topAuthErr'))$('topAuthErr').textContent=e.message}}
-async function topCheckSession(){try{const j=await topJSON('/api/creators/me');topUser=j.creator}catch(e){topUser=null}topRenderProfile()}
-function topRenderProfile(){
- const has=!!topUser;if($('topAuthBox'))$('topAuthBox').style.display=has?'none':'block';if($('topProfileBox'))$('topProfileBox').style.display=has?'block':'none';
- if(!has)return;
- $('topProfName').textContent=topUser.displayName||topUser.username;$('topProfUser').textContent='@'+topUser.username;
- $('topAv').style.background=topUser.avatar?`url(${topUser.avatar}) center/cover no-repeat`:'';$('topAv').textContent=topUser.avatar?'':(topUser.username||'?')[0].toUpperCase();
- $('topPName').value=topUser.displayName||'';$('topPTiktok').value=topUser.tiktok||'';$('topPBio').value=topUser.bio||'';$('topPAvatar').value=topUser.avatar||''}
-async function topSaveProfile(){
- if($('topProfMsg')){$('topProfMsg').style.color='#9a9aa8';$('topProfMsg').textContent='Guardando...'}
- try{const j=await topJSON('/api/creators/me',{method:'POST',body:JSON.stringify({displayName:$('topPName').value,tiktok:$('topPTiktok').value,bio:$('topPBio').value,avatar:$('topPAvatar').value})});
-  topUser=j.creator;topRenderProfile();topRenderList();if($('topProfMsg')){$('topProfMsg').style.color='#2fd06b';$('topProfMsg').textContent='Guardado ✅'}
- }catch(e){if($('topProfMsg')){$('topProfMsg').style.color='#ff5a7a';$('topProfMsg').textContent=e.message}}}
-async function topLogout(){try{await topJSON('/api/creators/logout',{method:'POST'})}catch(e){}topUser=null;topRenderProfile();topShowForm('login')}
 async function topRenderList(){
  const box=$('topList');if(!box)return;box.innerHTML='<small>Cargando...</small>';
  try{const j=await topJSON('/api/creators/top');
@@ -883,32 +819,5 @@ async function topRenderList(){
    if(c.tiktok){const a=document.createElement('a');a.href=c.tiktok;a.target='_blank';a.rel='noopener noreferrer';a.className='soc on';a.style.cssText='margin-left:auto;flex:none;width:42px';a.innerHTML='<span>♪</span>';d.appendChild(a)}
    box.appendChild(d)})
  }catch(e){box.innerHTML='<small>No se pudo cargar la lista.</small>'}}
-async function topAdminFeature(on){
- if($('topAdmMsg')){$('topAdmMsg').style.color='#9a9aa8';$('topAdmMsg').textContent='...'}
- try{await topJSON('/api/creators/feature',{method:'POST',body:JSON.stringify({username:$('topAdmUser').value,adminPass:$('topAdmPass').value,featured:on})});
-  if($('topAdmMsg')){$('topAdmMsg').style.color='#2fd06b';$('topAdmMsg').textContent=on?'Destacado ✅':'Quitado de destacados ✅'}
-  topRenderList()
- }catch(e){if($('topAdmMsg')){$('topAdmMsg').style.color='#ff5a7a';$('topAdmMsg').textContent=e.message}}}
-</script></html>
-
-
-<script>
-/* Contraseña provisional del panel (no afecta al overlay de TikTok LIVE Studio) */
-(function(){
- var PASS='wbabyjeje';
- if(new URLSearchParams(location.search).get('overlay'))return;
- try{if(localStorage.getItem('ruleta_ok')===PASS)return}catch(e){}
- var g=document.createElement('div');
- g.style.cssText='position:fixed;inset:0;z-index:99999;background:#0b0b0f;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif';
- g.innerHTML='<div style="background:#17171d;padding:26px;border-radius:14px;width:300px;text-align:center;color:#fff">'
-  +'<div style="font-size:18px;font-weight:700;margin-bottom:6px">🔒 Acceso privado</div>'
-  +'<div style="font-size:13px;color:#aaa;margin-bottom:14px">Escribe la contraseña para entrar</div>'
-  +'<input id="gpw" type="password" placeholder="Contraseña" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border:0;border-radius:8px;background:#26262f;color:#fff;font-size:14px">'
-  +'<div id="gerr" style="color:#ff5a7a;font-size:12px;height:16px;margin:6px 0"></div>'
-  +'<button id="gbt" style="width:100%;padding:10px;border:0;border-radius:8px;background:#25f4ee;color:#000;font-weight:700;font-size:14px;cursor:pointer">Entrar</button></div>';
- document.body.appendChild(g);
- var i=g.querySelector('#gpw'),e=g.querySelector('#gerr');
- function go(){if(i.value===PASS){try{localStorage.setItem('ruleta_ok',PASS)}catch(x){}g.remove()}else{e.textContent='Contraseña incorrecta';i.value='';i.focus()}}
- g.querySelector('#gbt').onclick=go;i.onkeydown=function(ev){if(ev.key==='Enter')go()};i.focus();
-})();
 </script>
+</html>
