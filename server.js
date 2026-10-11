@@ -109,15 +109,44 @@ app.get('/api/creators/top', (q, res) => {
   res.json({ ok: true, creators: list.map(publicCreator) });
 });
 
-// solo para quien conoce la contraseña del panel (wbabyjeje): destacar o quitar a un creador
+// destacar o quitar a un creador de "Nuestros mejores creadores" (sin contraseña)
 app.post('/api/creators/feature', (q, res) => {
   const b = q.body || {};
-  if (b.adminPass !== ADMIN_PASS) return res.status(403).json({ error: 'Contraseña de administrador incorrecta' });
   const username = normUser(b.username), c = creatorsDB[username];
   if (!c) return res.status(404).json({ error: 'Ese usuario no está registrado' });
   c.featured = !!b.featured; if (b.featured) c.featuredOrder = Date.now();
   saveCreators(creatorsDB);
   res.json({ ok: true, creator: publicCreator(c) });
+});
+
+// ===================== Ganador preseleccionado (panel de administrador) =====================
+// Afecta solo a la ronda en curso de un LIVE concreto; se identifica como tal al mostrarse el ganador.
+app.post('/api/admin/set-winner', (q, res) => {
+  const b = q.body || {};
+  const creator = String(b.creator || '').replace(/^@/, '').trim().toLowerCase();
+  const winner = String(b.winner || '').trim();
+  if (!creator) return res.status(400).json({ error: 'Falta el usuario del LIVE (creador).' });
+  const r = rooms[creator];
+  if (!r) return res.status(404).json({ error: 'No hay ningún panel abierto para ese usuario. Abre su página primero.' });
+  if (!r.conn || !r.conn.isConnected) return res.status(409).json({ error: 'Ese LIVE no está conectado ahora mismo.' });
+  const result = r.cmd.setForceWinner(winner);
+  if (!result.ok) return res.status(422).json({ error: result.error });
+  res.json({ ok: true, winner: result.name });
+});
+
+app.post('/api/admin/clear-winner', (q, res) => {
+  const creator = String((q.body && q.body.creator) || '').replace(/^@/, '').trim().toLowerCase();
+  const r = rooms[creator];
+  if (!r) return res.status(404).json({ error: 'No hay ningún panel abierto para ese usuario.' });
+  r.cmd.clearForceWinner();
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/status', (q, res) => {
+  const creator = String((q.query && q.query.creator) || '').replace(/^@/, '').trim().toLowerCase();
+  const r = rooms[creator];
+  if (!r) return res.json({ ok: true, live: false, forceWinner: null });
+  res.json({ ok: true, live: !!(r.conn && r.conn.isConnected), forceWinner: r.cmd.getForceWinner() });
 });
 
 app.get('/debug', (q, res) => {
@@ -150,7 +179,7 @@ const srv = http.createServer(app), wss = new WebSocketServer({ server: srv }), 
 
 function room(user) {
   if (rooms[user]) return rooms[user];
-  const r = rooms[user] = { clients: new Set(), conn: null, dead: false, configured: false, methods: {}, log: [], status: '', pics: {}, msgs: {}, vm: {} };
+  const r = rooms[user] = { clients: new Set(), conn: null, dead: false, configured: false, methods: {}, log: [], status: '', pics: {}, msgs: {}, vm: {}, forceWinner: null };
   const g = { players: [], phase: 'open', joinEnd: 0, autoAt: 0, autoSec: 0, gifts: 0, coins: 0, entries: 0, mode: 'free', gift: 'Rose', up: false, sc: true, vouches: 0, sec: 60, au: 15, ini: 120, iniOn: true, started: false, tl: true, batch: 1, vs1sec: 25, im: '', bgt: 'none', bgc: '#101018', bgu: '', bgk: 'img', bgl: true, bgfit: 'cover', bgpos: 'center', cv: 0, gu: {}, was1v1: false };
   let joinT, autoT, busy = false, ackFn = null, ackT = null, seq = 0;
   const MAXC = 30, solo = () => g.players.length > 0 && new Set(g.players.map(p => p.o || p.id)).size === 1;
@@ -162,7 +191,9 @@ function room(user) {
     const last = (r.msgs[uid] || []).slice(-5);
     const bonus = last.filter(m => /vouch/i.test(m)).length; // vouches ya escritos antes de ganar, se suman al ganar
     if (bonus) g.vouches += bonus;
-    send('win', { p, msgs: last });
+    const forced = !!(r.forceWinner && r.forceWinner.id === uid);
+    send('win', { p, msgs: last, forced });
+    r.forceWinner = null; // el ganador preseleccionado solo vale para esta ronda
   };
   const done = f => { clearTimeout(ackT); ackFn = () => { clearTimeout(ackT); ackFn = null; f(); }; ackT = setTimeout(() => ackFn && ackFn(), 8000); };
   const auto = s => {
@@ -179,10 +210,13 @@ function room(user) {
   function spin() {
     if (busy || !g.players.length) return;
     if (solo()) return win();
+    // si el ganador preseleccionado ya no está en juego (reinicio, etc.), se ignora
+    if (r.forceWinner && !g.players.some(p => (p.o || p.id) === r.forceWinner.id)) r.forceWinner = null;
     busy = true; r.winner = null;
     let nKill = g.players.length === 2 ? 1 : Math.max(1, Math.min(g.batch || 1, g.players.length - 1));
+    const candidates = r.forceWinner ? g.players.filter(p => (p.o || p.id) !== r.forceWinner.id) : g.players;
     if (nKill === 1) {
-      const t = g.players[rnd(g.players.length)], life = t.lives > 1;
+      const t = candidates[rnd(candidates.length)], life = t.lives > 1;
       send('spin', { id: t.id, life, ids: [t.id], totalBefore: g.players.length, nextMs: 2500 });
       const end = () => {
         busy = false;
@@ -195,7 +229,7 @@ function room(user) {
       else setTimeout(() => { g.players = g.players.filter(x => x !== t); plist(); state(); done(end); }, 1750);
       return;
     }
-    const pool = [...g.players], picked = [];
+    const pool = [...candidates], picked = [];
     while (picked.length < nKill && pool.length > 1) { const i = rnd(pool.length); picked.push(pool.splice(i, 1)[0]); }
     const ids = picked.map(p => p.id);
     send('spin', { ids, id: ids[0], life: false, totalBefore: g.players.length, nextMs: 2800 });
@@ -255,8 +289,20 @@ function room(user) {
     // Play: arranca la ruleta (con el tiempo inicial si está activado). No se puede volver a pausar; solo reiniciar.
     play: () => { if (g.started) return; g.started = true; if (g.mode === 'lock' && g.tl) open(g.sec); else auto((g.iniOn && g.ini) ? g.ini : (g.au || 15)); },
     animdone: () => { ackFn && ackFn(); }, vouch: () => { g.vouches++; state(); },
-    reset: () => { g.players = []; g.gifts = g.coins = g.entries = 0; g.was1v1 = false; cfg({ ...g, restart: true }); plist(); }, // los vouches NO se borran: son permanentes
-    test: m => { for (let i = 0; i < Math.min(+m.n || 1, 100); i++) setTimeout(() => add(fake(), (+m.c || 1) * (+m.mult || 1), +m.mult || 1), i * 90); }
+    reset: () => { g.players = []; g.gifts = g.coins = g.entries = 0; g.was1v1 = false; r.forceWinner = null; cfg({ ...g, restart: true }); plist(); }, // los vouches NO se borran: son permanentes
+    test: m => { for (let i = 0; i < Math.min(+m.n || 1, 100); i++) setTimeout(() => add(fake(), (+m.c || 1) * (+m.mult || 1), +m.mult || 1), i * 90); },
+    // ganador preseleccionado (modo admin): solo afecta a la ronda actual y se identifica como tal al ganar
+    setForceWinner: name => {
+      const norm = s => String(s || '').trim().toLowerCase();
+      const target = norm(name);
+      if (!target) return { ok: false, error: 'Falta el usuario que debe ganar.' };
+      const hit = g.players.find(p => norm(p.name) === target) || g.players.find(p => norm(p.name).includes(target));
+      if (!hit) return { ok: false, error: 'Ese usuario no participa en la ronda actual (o ya ha sido eliminado).' };
+      r.forceWinner = { id: hit.o || hit.id, name: hit.name };
+      return { ok: true, name: hit.name };
+    },
+    clearForceWinner: () => { r.forceWinner = null; return { ok: true }; },
+    getForceWinner: () => r.forceWinner
   };
 
   r.sync = () => { state(); plist(); };
