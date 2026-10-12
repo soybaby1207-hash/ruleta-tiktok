@@ -18,6 +18,8 @@ const idOf = (U, d) => {
   return 't' + crypto.randomUUID();
 };
 const nameOf = (U, d) => (U && (U.nickname || U.uniqueId)) || (d && (d.nickname || d.uniqueId)) || 'Anónimo';
+let _profileCache = null; // instancia compartida de piratetok-live-js para sacar la foto de perfil del creador
+const ownerPic = p => bestPic({ avatarLarge: p.avatarLarge, avatarMedium: p.avatarMedium, avatarThumb: p.avatarThumb });
 const dump = o => { try { return JSON.stringify(o, (k, v) => typeof v === 'bigint' ? v.toString() : v).slice(0, 2500); } catch (e) { return 'no se pudo serializar'; } };
 
 const KEY = process.env.EULER_API_KEY || undefined, rnd = n => crypto.randomInt(n);
@@ -318,6 +320,8 @@ function room(user) {
       const TikTokLiveClient = pkg.TikTokLiveClient || pkg.default?.TikTokLiveClient || pkg.default;
       ET = pkg.EventType || (pkg.default && pkg.default.EventType) || {};
       r.conn = new TikTokLiveClient(user);
+      const PC = pkg.ProfileCache || (pkg.default && pkg.default.ProfileCache);
+      if (PC && !_profileCache) _profileCache = new PC();
     } catch (err) {
       console.error('Error al importar:', err);
       send('status', { ok: false, msg: 'Error al cargar el módulo de TikTok' });
@@ -380,6 +384,12 @@ function room(user) {
 
     r.conn.connect().then(() => {
         send('status', { ok: true, msg: 'Conectado a @' + user });
+        if (_profileCache) {
+          _profileCache.fetch(user).then(p => {
+            r.owner = { avatar: ownerPic(p) || '', name: p.nickname || p.uniqueId || user };
+            send('owner', r.owner);
+          }).catch(e => console.error('foto de perfil', e && e.message || e));
+        }
     }).catch(e => {
         send('status', { ok: false, msg: 'No se pudo conectar a @' + user + ' (' + String(e.message || e).slice(0, 160) + ')' });
         retry();
