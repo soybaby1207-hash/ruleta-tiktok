@@ -518,7 +518,7 @@ body:not(.o) #w #t.run { background:#e5444a!important;color:#fff!important; }
 </div>
 <div id=hdr><div class=brand><span class="logo" role="button" tabindex="0" title="Abrir administrador" aria-label="Abrir administrador" onclick="openAdmin()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAdmin()}"></span><span class=bn><b>Baby Tools</b><a class=by href="https://www.tiktok.com/@soybaby1207" target=_blank rel="noopener noreferrer">por @soybaby1207</a></span></div>
 <nav id=tabs><button class="tab on" data-t=roulette onclick="tab('roulette')">Elimination Roulette</button><button class=tab data-t=gifters onclick="tab('gifters')">Top donadores<i>Coming soon</i></button><button class=tab data-t=wheel onclick="tab('wheel')">Sorteos<i>Coming soon</i></button><button class=tab data-t=battle onclick="tab('battle')">Batallas<i>Coming soon</i></button><button class=tab data-t=goals onclick="tab('goals')">Metas<i>Coming soon</i></button><button class=tab data-t=alerts onclick="tab('alerts')">Alertas<i>Coming soon</i></button></nav>
-<div id=top><div class=row><button id="me" type="button" title="Foto de perfil de TikTok" aria-label="Foto de perfil de TikTok"></button><input id=tu placeholder="@tu_usuario de TikTok" onchange=preview() onkeydown="if(event.key==='Enter'){preview();conectar()}"><button onclick="preview();conectar()">Conectar</button></div><small id=cs>Sin conectar</small></div>
+<div id=top><div class=row><button id="me" type="button" title="Foto de perfil de TikTok" aria-label="Foto de perfil de TikTok">B</button><input id=tu placeholder="@tu_usuario de TikTok" onchange=preview() onkeydown="if(event.key==='Enter'){preview();conectar()}"><button onclick="preview();conectar()">Conectar</button></div><small id=cs>Sin conectar</small></div>
 </div>
 <div id=app>
 <div id=pv><div class=pvh><b>Vista previa</b><span>Así se verá en tu directo</span><i class=sp></i><button id=bigb onclick=big()>Ampliar</button><button onclick=fs()>Pantalla completa</button></div><div id=sw><div id=s><div id=w>
@@ -720,7 +720,7 @@ function wsUrl(){const us=$('tu').value.trim().replace('@','').toLowerCase();if(
 const unav=()=>{const u=$('tu').value.trim().replace('@','');return u?'https://unavatar.io/tiktok/'+encodeURIComponent(u):''};
 function setMe(url,name,fb){const e=$('me');e.innerHTML='';const ini=()=>{e.textContent=(name||$('tu').value||'?').replace('@','').charAt(0).toUpperCase()||'?'};
  if(!url)return ini();const i=new Image();let tried=false;i.onerror=()=>{if(fb&&!tried){tried=true;i.src=fb}else{i.remove();ini()}};i.src=url;e.appendChild(i)}
-function preview(){const u=$('tu').value.trim().replace('@','');try{localStorage.setItem('ruleta_user',u)}catch(e){}}
+function preview(){const u=$('tu').value.trim().replace('@','');try{localStorage.setItem('ruleta_user',u)}catch(e){}setMe(unav(),u)}
 const SOON={gifters:['Top donadores','Ranking en vivo de quienes más regalan durante tu directo.'],wheel:['Sorteos','Sorteos y ruletas de premios entre tu audiencia.'],battle:['Batallas','Marcadores y contadores para batallas y retos.'],goals:['Metas','Barra de objetivos de regalos con efectos al completarse.'],alerts:['Alertas','Avisos animados para regalos, seguidores y compartidos.']};
 function tab(n){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.t===n));const r=n==='roulette';$('app').style.display=r?'flex':'none';$('soon').style.display=r?'none':'flex';if(r)render();else{$('sn').textContent=SOON[n][0];$('sd').textContent=SOON[n][1]}}
 new MutationObserver(()=>{$('cs').title=$('cs').textContent}).observe($('cs'),{childList:true,characterData:true,subtree:true});
@@ -892,7 +892,6 @@ async function adminRefreshStatus(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAdmin()});
 // Acceso secreto robusto: también funciona al hacer clic directamente sobre la foto/imagen.
-
 </script>
 
 <style id="overlay-transparency-fix">
