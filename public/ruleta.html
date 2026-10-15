@@ -565,7 +565,7 @@ body:not(.o) #w #t.run { background:#e5444a!important;color:#fff!important; }
 <div class=btns><button onclick=enlace()>Generar enlace</button><button class=g onclick="navigator.clipboard.writeText($('lk').textContent)">Copiar enlace</button></div>
 <div style="grid-column:1/-1"><div id=lk>Pulsa "Generar enlace"</div></div>
 </div><small>En TikTok LIVE Studio: Añadir fuente → Enlace/Web. El enlace lleva tus reglas y se conecta solo. Ábrelo antes en Chrome para comprobar que se ve.</small></section><section class=dp id=d-normas><div class=sech><b>Reglas</b><span>Lo que tiene que saber quien participa</span></div><div class=how><b>Cómo se juega</b><ol><li>Para entrar, mandas la <b>Rose</b> en el directo. Cada regalo es una carta.</li><li>Cuando termina la cuenta atrás, se elimina una carta al azar.</li><li>Gana la última persona que queda.</li><li>El ganador escribe <b>vouch</b> en el chat y suma al contador.</li></ol></div></section><section class=dp id=d-top><div class=sech><b>Top creadores</b><span>Nuestros mejores creadores: crea tu cuenta para poder aparecer aquí</span></div>
-<div id=topList class=fg style="grid-template-columns:1fr;margin-bottom:18px"><small>Cargando...</small></div>
+<div id=creatorAuth class=cr style="flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px"><div class=fg style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"><div><label class=fl>Tu usuario de TikTok</label><input id=caUser placeholder="@tu_usuario"></div><div><label class=fl>Nombre a mostrar (opcional)</label><input id=caName placeholder="Como quieres que te vean"></div></div><button class="soc big" onclick="creatorEnter()">Crear cuenta / Entrar</button><small id=caMsg></small></div><div id=creatorProfile class=cr style="display:none;flex-direction:column;align-items:stretch;gap:10px;margin-bottom:16px"><div style="display:flex;align-items:center;gap:10px"><div class=crav id=cpAv></div><div class=crt><b id=cpName></b><span id=cpUser></span></div><button class=soc style="margin-left:auto;flex:none;width:auto;padding:0 14px" onclick="creatorLogout()">Salir</button></div><div class=fg style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))"><div><label class=fl>Nombre a mostrar</label><input id=cpDisplay></div><div><label class=fl>Enlace de TikTok</label><input id=cpTiktok placeholder="https://www.tiktok.com/@usuario"></div></div><div><label class=fl>Bio</label><input id=cpBio placeholder="Cuéntanos algo de ti (opcional)"></div><div class="admin-actions"><button class="soc big" style="flex:1" onclick="creatorSave()">Guardar perfil</button><button id=cpFeatureBtn class=soc style="flex:1" onclick="creatorToggleFeature()">Aparecer en el Top</button></div><small id=cpMsg></small></div><div id=topList class=fg style="grid-template-columns:1fr;margin-bottom:18px"><small>Cargando...</small></div>
 
 
 </section>
@@ -835,6 +835,7 @@ addEventListener('resize',()=>render());setInterval(clock,300);render();ui();
 $('cs').textContent='Modo prueba local (sin servidor)';try{const u=localStorage.getItem('ruleta_user');if(u&&!Q.get('overlay')){$('tu').value=u;preview()}}catch(e){}
 L.start();
 topRenderList();
+creatorRefreshMe();
 if(Q.get('overlay')){document.documentElement.classList.add('o');document.body.classList.add('o');$('mode').value=Q.get('mode')||'free';$('tu').value=Q.get('user')||'';setGift(Q.get('gift')||'');$('im').value=Q.get('img')||'';$('bgt').value=Q.get('bgt')||'none';$('bgc').value=Q.get('bgc')||'#101018';$('bgu').value=Q.get('bgu')||'';$('bgk').value=Q.get('bgk')||'img';$('bgl').checked=Q.get('bgl')!=='0';if($('bgfit'))$('bgfit').value=Q.get('bgfit')||'cover';if($('bgpos'))$('bgpos').value=Q.get('bgpos')||'center';$('up').checked=Q.get('up')==='1';$('sc').checked=Q.get('sc')!=='0';$('tl').checked=Q.get('tl')!=='0';if(Q.get('join'))$('sec').value=Q.get('join');if(Q.get('auto'))$('au').value=Q.get('auto');if(Q.get('ini'))$('ini').value=Q.get('ini');$('iniOn').checked=Q.get('iniOn')!=='0';tx({...cfgObj(true),soft:true});conectar(wsUrl())}
 
 /* ---- Lista pública de creadores destacados ---- */
@@ -854,6 +855,49 @@ async function topRenderList(){
    box.appendChild(d)})
  }catch(e){box.innerHTML='<small>No se pudo cargar la lista.</small>'}}
 
+let creatorMe=null;
+function creatorEsc(x){return String(x||'').replace(/</g,'&lt;')}
+function creatorPaint(){
+ const has=!!creatorMe;
+ $('creatorAuth').style.display=has?'none':'flex';
+ $('creatorProfile').style.display=has?'flex':'none';
+ if(!has)return;
+ const av=$('cpAv');if(creatorMe.avatar)av.style.background=`url(${creatorMe.avatar}) center/cover no-repeat`;else{av.style.background='';av.textContent=(creatorMe.username||'?')[0].toUpperCase()}
+ $('cpName').textContent=creatorMe.displayName||creatorMe.username;
+ $('cpUser').textContent='@'+creatorMe.username;
+ $('cpDisplay').value=creatorMe.displayName||'';
+ $('cpTiktok').value=creatorMe.tiktok||'';
+ $('cpBio').value=creatorMe.bio||'';
+ $('cpFeatureBtn').textContent=creatorMe.featured?'Quitarme del Top':'Aparecer en el Top';
+}
+async function creatorRefreshMe(){
+ try{const j=await topJSON('/api/creators/me');creatorMe=j.creator}catch(e){creatorMe=null}
+ creatorPaint();
+}
+async function creatorEnter(){
+ const username=($('caUser').value||'').trim().replace('@',''),displayName=($('caName').value||'').trim(),msg=$('caMsg');
+ if(!username){msg.textContent='Escribe tu usuario de TikTok.';return}
+ msg.textContent='Entrando…';
+ try{const j=await topJSON('/api/creators/enter',{method:'POST',body:JSON.stringify({username,displayName})});
+  creatorMe=j.creator;msg.textContent='';creatorPaint()}
+ catch(e){msg.textContent='⚠️ '+e.message}
+}
+async function creatorLogout(){
+ try{await topJSON('/api/creators/logout',{method:'POST'})}catch(e){}
+ creatorMe=null;creatorPaint();
+}
+async function creatorSave(){
+ const msg=$('cpMsg');msg.textContent='Guardando…';
+ try{const j=await topJSON('/api/creators/me',{method:'POST',body:JSON.stringify({displayName:$('cpDisplay').value,bio:$('cpBio').value,tiktok:$('cpTiktok').value})});
+  creatorMe=j.creator;msg.textContent='Perfil guardado.';creatorPaint();topRenderList()}
+ catch(e){msg.textContent='⚠️ '+e.message}
+}
+async function creatorToggleFeature(){
+ const msg=$('cpMsg'),want=!creatorMe.featured;
+ try{const j=await topJSON('/api/creators/feature',{method:'POST',body:JSON.stringify({username:creatorMe.username,featured:want})});
+  creatorMe=j.creator;msg.textContent=want?'Ya apareces en el Top.':'Te has quitado del Top.';creatorPaint();topRenderList()}
+ catch(e){msg.textContent='⚠️ '+e.message}
+}
 let adminOK=false;
 function openAdmin(){const l=document.getElementById('adminLayer');l.style.display='flex';
  if(adminOK){document.getElementById('adminLogin').style.display='none';document.getElementById('adminContent').style.display='block';adminRefreshStatus()}
